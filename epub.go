@@ -26,7 +26,7 @@ type Book struct {
 	Mixed     bool
 	Pages     []Page
 	TOC       []TOCEntry // from the PDF's outline; nil lists every page
-	Labels    []string   // what each page is called; nil numbers them from 1
+	Labels    []string   // what each page is called; nil numbers them from 1, and "" leaves a page unnamed, as the second half of a split spread is
 	Modified  time.Time
 	ID        string // urn:uuid:...
 }
@@ -281,7 +281,9 @@ func navXHTML(b *Book) []byte {
 		list(b.TOC)
 	} else {
 		for i := range b.Pages {
-			fmt.Fprintf(&buf, "<li><a href=\"%s\">%s</a></li>\n", href(i), esc(label(i)))
+			if l := label(i); l != "" {
+				fmt.Fprintf(&buf, "<li><a href=\"%s\">%s</a></li>\n", href(i), esc(l))
+			}
 		}
 	}
 	buf.WriteString("</ol>\n</nav>\n")
@@ -290,7 +292,9 @@ func navXHTML(b *Book) []byte {
 	// or by its printed label where the PDF has them.
 	buf.WriteString("<nav epub:type=\"page-list\" id=\"page-list\" hidden=\"hidden\">\n<ol>\n")
 	for i := range b.Pages {
-		fmt.Fprintf(&buf, "<li><a href=\"%s\">%s</a></li>\n", href(i), esc(label(i)))
+		if l := label(i); l != "" {
+			fmt.Fprintf(&buf, "<li><a href=\"%s\">%s</a></li>\n", href(i), esc(l))
+		}
 	}
 	buf.WriteString("</ol>\n</nav>\n</body>\n</html>\n")
 	return buf.Bytes()

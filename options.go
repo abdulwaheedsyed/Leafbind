@@ -31,6 +31,8 @@ type Options struct {
 	Mixed     bool
 	TOC       string // tocBookmarks or tocPages
 	Pages     string // page range; "" converts every page
+	Trim      bool   // crop empty margins
+	Split     bool   // split two-page spreads into single pages
 	Password  string // for an encrypted PDF
 
 	OutDir    string   // --out: convert every input into this folder
@@ -95,6 +97,10 @@ Options:
   --rtl              Right-to-left reading order     (default is LTR; --ltr)
   --orientation X    Force portrait, landscape, auto or none
   --mixed            Keep per-page canvases instead of one shared canvas
+  --trim             Crop empty margins, so the content fills more of the
+                     screen; left and right pages are trimmed apart
+  --split            Split two-page spreads into single pages, for scans
+                     of an open book
   --toc X            Contents from the PDF's bookmarks, or one entry per
                      page: bookmarks or pages        (default bookmarks)
   --pages RANGE      Convert only these pages, such as 1-20,25,30-
@@ -160,6 +166,8 @@ func parseArgs(args []string) (Options, error) {
 		"ltr":                boolFlag(func() { o.Direction = "ltr" }),
 		"rtl":                boolFlag(func() { o.Direction = "rtl" }),
 		"mixed":              boolFlag(func() { o.Mixed = true }),
+		"trim":               boolFlag(func() { o.Trim = true }),
+		"split":              boolFlag(func() { o.Split = true }),
 		"no-validate":        boolFlag(func() { o.Validate = false }),
 		"epubcheck":          boolFlag(func() { o.Epubcheck = true }),
 		"no-epubcheck":       boolFlag(func() { o.Epubcheck = false }),

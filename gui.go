@@ -61,6 +61,8 @@ type jobSettings struct {
 	MaxEdge     int    `json:"maxEdge"`
 	Orientation string `json:"orientation"` // "" = automatic
 	Mixed       bool   `json:"mixed"`
+	Trim        bool   `json:"trim"`
+	Split       bool   `json:"split"`
 	TOC         string `json:"toc"` // "" = bookmarks
 	Validate    bool   `json:"validate"`
 	Epubcheck   bool   `json:"epubcheck"` // also run an installed epubcheck
@@ -107,6 +109,7 @@ func (s jobSettings) options(title, in, out string, jobs int) (Options, error) {
 	}
 	o.Lang, o.Direction, o.Grayscale, o.FlattenBG = s.Lang, s.Direction, s.Grayscale, s.FlattenBG
 	o.DPI, o.Quality, o.MaxEdge, o.Orient, o.Mixed = s.DPI, s.Quality, s.MaxEdge, s.Orientation, s.Mixed
+	o.Trim, o.Split = s.Trim, s.Split
 	o.TOC, o.Validate, o.Epubcheck = s.TOC, s.Validate, s.Validate && s.Epubcheck
 	return o, nil
 }
@@ -151,7 +154,9 @@ type codeCount struct {
 
 type resultView struct {
 	Pages       int         `json:"pages"`
-	Of          int         `json:"of"` // pages in the PDF
+	Of          int         `json:"of"`      // pages in the PDF
+	Sources     int         `json:"sources"` // PDF pages the book is made from
+	Trimmed     int         `json:"trimmed"` // pages whose margins were trimmed
 	Canvas      string      `json:"canvas"`
 	Orientation string      `json:"orientation"`
 	DPI         int         `json:"dpi"`
@@ -880,7 +885,7 @@ func (s *guiServer) runJob(id string) {
 
 func newResultView(r *Result, o Options) *resultView {
 	v := &resultView{
-		Pages: r.Pages, Of: r.Of, Orientation: r.Orient.Book, DPI: r.DPI, Scan: r.Scan,
+		Pages: r.Pages, Of: r.Of, Sources: r.Sources, Trimmed: r.Trimmed, Orientation: r.Orient.Book, DPI: r.DPI, Scan: r.Scan,
 		Bytes: r.Bytes, Seconds: r.Elapsed.Seconds(), Flattened: r.Flattened, TOC: r.TOC,
 		Validated: r.Validated, Passed: r.Passed, Epubcheck: "skipped",
 		Built: time.Now().UnixNano(),

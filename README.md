@@ -47,6 +47,9 @@ Previewer, or Send to Kindle, can then take the rest of the way.
 - **Right-to-left or left-to-right** page progression.
 - **Page ranges and encrypted PDFs.** Convert only the pages you want, and
   open password-protected PDFs.
+- **Margin trimming and spread splitting,** when asked: wide margins are
+  cropped so text is larger on the screen, and scans of an open book become
+  single pages.
 - **A real table of contents.** The PDF's bookmarks become the book's
   contents, nested as they are in the PDF, and its page labels (`iv`, `12`)
   let the Kindle go to a page by its printed number.
@@ -185,6 +188,8 @@ Options may appear anywhere on the command line, as `--name value`,
 | `--rtl` | LTR | Right-to-left page progression, for Arabic, Urdu, Hebrew and similar. `--ltr` selects the default explicitly. |
 | `--orientation X` | detected | Force `portrait`, `landscape`, `auto` or `none`. |
 | `--mixed` | off | Keep each page's own canvas instead of one shared canvas. |
+| `--trim` | off | Crop empty margins so the content fills more of the screen. Left and right pages are trimmed apart and kept the same size; covers and full-bleed pages stay whole. |
+| `--split` | off | Split two-page spreads, pages wider than tall, into single pages, in reading order. For scans of an open book; portrait pages stay whole. |
 | `--pages RANGE` | all | Convert only these pages, such as `1-20,25,30-`; numbers are the PDF's page positions, from 1. The book keeps the PDF's page order. |
 | `--password TEXT` | | Password of an encrypted PDF. `LEAFBIND_PASSWORD` in the environment works too, and keeps it out of the process list. |
 | `--toc X` | `bookmarks` | Table of contents: `bookmarks`, from the PDF's outline when it has one, otherwise one entry per page; or `pages`, always one entry per page. |
@@ -231,6 +236,12 @@ A password-protected PDF:
 
 ```bash
 LEAFBIND_PASSWORD='the password' leafbind book.pdf book.epub
+```
+
+A scanned book with wide margins, photographed two pages at a time:
+
+```bash
+leafbind --grayscale --split --trim scan.pdf book.epub
 ```
 
 A book printed on a tinted background:
@@ -290,23 +301,30 @@ that should stay crisp when zoomed.
 2. **Measure.** Each page's pixel size at that resolution is taken from the PDF
    engine, including any `/Rotate`, so a rotated page is never mistaken for the
    wrong orientation.
-3. **Pick a canvas.** The canvas starts from the most common page size, grows
+3. **Split and trim,** when asked. With `--split`, each page wider than tall
+   becomes its two halves. With `--trim`, every page is rendered small to
+   find its content; the content boxes of the left-hand pages are joined,
+   and of the right-hand pages, a margin is added, and the two are made the
+   same size, so pages do not jump as they turn. Pages whose content reaches
+   every edge, or whose background is not the book's, such as a cover, stay
+   whole.
+4. **Pick a canvas.** The canvas starts from the most common page size, grows
    if needed to contain the largest page at that same aspect ratio, is capped
    at `--max-edge`, and is rounded down to even dimensions.
-4. **Render and fit.** Pages are rendered in parallel, scaled to fit inside
+5. **Render and fit.** Pages are rendered in parallel, scaled to fit inside
    the canvas with their aspect ratio intact, and padded out to its exact size.
    Nothing is cropped or stretched. The padding colour is sampled from the edge
    being padded, so letterbox bars blend with the page.
-5. **Convert.** Optionally greyscale and background flattening.
-6. **Encode.** Each page is written as a baseline JPEG with Huffman tables
+6. **Convert.** Optionally greyscale and background flattening.
+7. **Encode.** Each page is written as a baseline JPEG with Huffman tables
    optimised for that page.
-7. **Package.** Standard EPUB 3 fixed-layout metadata, plus Kindle's own
+8. **Package.** Standard EPUB 3 fixed-layout metadata, plus Kindle's own
    fixed-layout metadata. Page 1 becomes the cover. The table of contents
    comes from the PDF's bookmarks, with their nesting; a bookmark that
    leaves the document is left out, and one that only groups others opens
    its first child's page. A page list, labelled with the PDF's page labels
    where it has them, lets a reader go to a page by number.
-8. **Validate** the package that was written.
+9. **Validate** the package that was written.
 
 ### Why one canvas
 

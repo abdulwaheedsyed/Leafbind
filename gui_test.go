@@ -318,6 +318,15 @@ func TestGUISettingsContents(t *testing.T) {
 	if _, err := s.options("t", "in.pdf", "out.epub", 1); err == nil {
 		t.Error("an unknown contents setting was accepted")
 	}
+	s = defaultSettings()
+	s.Trim, s.Split, s.Epubcheck = true, true, true
+	if o, _ := s.options("t", "in.pdf", "out.epub", 1); !o.Trim || !o.Split || !o.Epubcheck {
+		t.Errorf("trim, split and epubcheck settings were not applied: %+v", o)
+	}
+	s.Validate = false
+	if o, _ := s.options("t", "in.pdf", "out.epub", 1); o.Epubcheck {
+		t.Error("epubcheck runs only as part of validation")
+	}
 }
 
 // A password-protected PDF waits for its password, and a page range

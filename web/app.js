@@ -46,7 +46,7 @@ const icon = (id) => `<svg><use href="#i-${id}"/></svg>`;
 
 const els = {
   lang: $("#lang"), langOther: $("#lang-other"), langOtherRow: $("#lang-other-row"),
-  flatten: $("#flatten"), orientation: $("#orientation"), dpi: $("#dpi"),
+  flatten: $("#flatten"), orientation: $("#orientation"), dpi: $("#dpi"), trim: $("#trim"), split: $("#split"),
   quality: $("#quality"), qualityOut: $("#quality-out"), maxEdge: $("#maxEdge"),
   mixed: $("#mixed"), validate: $("#validate"), toc: $("#toc"), epubcheck: $("#epubcheck"),
 };
@@ -68,6 +68,8 @@ function readSettings() {
     maxEdge: +els.maxEdge.value,
     orientation: els.orientation.value,
     mixed: els.mixed.checked,
+    trim: els.trim.checked,
+    split: els.split.checked,
     toc: els.toc.value,
     validate: els.validate.checked,
     epubcheck: els.epubcheck.checked,
@@ -87,6 +89,8 @@ function applySettings(s) {
   els.quality.value = s.quality; els.qualityOut.value = s.quality;
   els.maxEdge.value = [...els.maxEdge.options].some((o) => +o.value === s.maxEdge) ? String(s.maxEdge) : "2560";
   els.mixed.checked = s.mixed;
+  els.trim.checked = !!s.trim;
+  els.split.checked = !!s.split;
   els.toc.value = s.toc === "pages" ? "pages" : "bookmarks";
   els.validate.checked = s.validate;
   els.epubcheck.checked = !!s.epubcheck;
@@ -157,6 +161,7 @@ function toast(message, kind = "bad") {
 
 const stageText = {
   measuring: "Reading the PDF",
+  trimming: "Finding the margins",
   rendering: "Rendering pages",
   packaging: "Packaging the EPUB",
   validating: "Validating",
@@ -248,7 +253,9 @@ function renderJob(job) {
   }
 
   const meta = [job.file];
-  if (job.result && job.result.of && job.result.pages !== job.result.of) meta.push(`${job.result.pages} of ${plural(job.result.of, "page")}`);
+  const r0 = job.result;
+  if (r0 && r0.sources && r0.pages !== r0.sources) meta.push(`${plural(r0.pages, "page")} from ${r0.sources === r0.of ? "" : r0.sources + " of "}${plural(r0.of, "PDF page")}`);
+  else if (r0 && r0.of && r0.pages !== r0.of) meta.push(`${r0.pages} of ${plural(r0.of, "page")}`);
   else if (job.pages) meta.push(plural(job.pages, "page"));
   meta.push(fmtBytes(job.bytes));
   const m = $(".meta", li);
@@ -265,9 +272,11 @@ function renderJob(job) {
   bar.hidden = !busy;
   stage.hidden = !busy;
   if (busy) {
-    // Reading the PDF is the first tenth of the bar, rendering the rest.
-    const counted = (job.stage === "measuring" || job.stage === "rendering") && job.total > 0;
-    const frac = !counted ? 0 : job.stage === "measuring" ? 0.1 * job.done / job.total : 0.1 + 0.9 * job.done / job.total;
+    // Reading the PDF is the first tenth of the bar, finding the margins
+    // (when trimming) the next, and rendering the rest.
+    const counted = ["measuring", "trimming", "rendering"].includes(job.stage) && job.total > 0;
+    const part = job.done / job.total;
+    const frac = !counted ? 0 : job.stage === "measuring" ? 0.1 * part : job.stage === "trimming" ? 0.1 + 0.1 * part : 0.2 + 0.8 * part;
     bar.classList.toggle("busy", !counted);
     fill.style.width = counted ? (100 * frac).toFixed(1) + "%" : "";
     stage.textContent = job.state === "queued" ? "Waiting for the book ahead"

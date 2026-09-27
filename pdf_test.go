@@ -16,6 +16,9 @@ type testPage struct {
 	BG     *RGB    // page background; nil leaves it white
 	Bar    bool    // a black bar across the top third, as stand-in "text"
 	Text   bool    // a line of real text
+	// Box, when set, draws a black rectangle at these fractions of the
+	// page, measured from its top left: x0, y0, x1, y1.
+	Box *[4]float64
 	// Scan, when set, makes the page a single greyscale image of this many
 	// pixels, drawn over the whole page, like a scanned book.
 	Scan *Size
@@ -178,6 +181,9 @@ func makePDFWith(pages []testPage, doc testPDF) []byte {
 		if p.BG != nil {
 			fmt.Fprintf(&c, "%.4f %.4f %.4f rg 0 0 %g %g re f\n",
 				float64(p.BG.R)/255, float64(p.BG.G)/255, float64(p.BG.B)/255, p.W, p.H)
+		}
+		if b := p.Box; b != nil {
+			fmt.Fprintf(&c, "0 0 0 rg %g %g %g %g re f\n", p.W*b[0], p.H*(1-b[3]), p.W*(b[2]-b[0]), p.H*(b[3]-b[1]))
 		}
 		if p.Bar {
 			fmt.Fprintf(&c, "0 0 0 rg %g %g %g %g re f\n", p.W*0.1, p.H*0.7, p.W*0.8, p.H*0.1)

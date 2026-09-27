@@ -141,6 +141,11 @@
           <span class="track"></span>
           <span class="text">Whiten tinted pages<small>Turns a coloured page background white, for contrast on e-ink.</small></span>
         </label>
+        <label class="switch">
+          <input type="checkbox" id="trim">
+          <span class="track"></span>
+          <span class="text">Trim margins<small>Crops empty borders so the page fills more of the screen. Left and right pages are trimmed apart.</small></span>
+        </label>
         <label class="field">
           <span>Orientation</span>
           <select id="orientation">
@@ -185,6 +190,11 @@
           <input type="checkbox" id="mixed">
           <span class="track"></span>
           <span class="text">Keep each page's own size<small>For books that mix portrait and landscape. Kindle handles these poorly.</small></span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="split">
+          <span class="track"></span>
+          <span class="text">Split two-page scans<small>Makes each wide page two pages, for scans of an open book. Portrait pages stay whole.</small></span>
         </label>
         <label class="switch">
           <input type="checkbox" id="validate">

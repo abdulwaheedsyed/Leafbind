@@ -144,12 +144,20 @@ func convertWith(ctx context.Context, eng *engine, o Options, out io.Writer) (bo
 	rendering := false
 	res, err := convertBook(ctx, eng, o, func(e Event) {
 		if p := e.Plan; p != nil {
-			of := ""
-			if p.Of != p.Pages {
-				of = fmt.Sprintf(" of %d", p.Of)
+			from := ""
+			switch {
+			case p.Sources != p.Pages && p.Sources != p.Of:
+				from = fmt.Sprintf(", from %d of %d PDF pages", p.Sources, p.Of)
+			case p.Sources != p.Pages:
+				from = fmt.Sprintf(", from %d PDF pages", p.Sources)
+			case p.Of != p.Pages:
+				from = fmt.Sprintf(" of %d", p.Of)
 			}
 			say("Pages       : %d%s (%d landscape, %d portrait, %d square)\n",
-				p.Pages, of, p.Tally["landscape"], p.Tally["portrait"], p.Tally["square"])
+				p.Pages, from, p.Tally["landscape"], p.Tally["portrait"], p.Tally["square"])
+			if o.Trim {
+				say("Margins     : trimmed on %d of %d pages\n", p.Trimmed, p.Pages)
+			}
 			if p.Scan {
 				say("Resolution  : %d DPI (scan, native resolution)\n", p.DPI)
 			} else {
