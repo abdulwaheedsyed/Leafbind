@@ -70,6 +70,24 @@ func TestOutlineLoop(t *testing.T) {
 	}
 }
 
+func TestInReadingOrder(t *testing.T) {
+	last := -1
+	got := inReadingOrder([]TOCEntry{
+		{Title: "One", Page: 1},
+		{Title: "Cover", Page: 0},
+		{Title: "Two", Page: 3, Children: []TOCEntry{{Title: "2.1", Page: 3}, {Title: "Back", Page: 2}, {Title: "2.2", Page: 4}}},
+		{Title: "Index", Page: 2, Children: []TOCEntry{{Title: "Later", Page: 5}}},
+	}, &last)
+	want := []TOCEntry{
+		{Title: "One", Page: 1},
+		{Title: "Two", Page: 3, Children: []TOCEntry{{Title: "2.1", Page: 3}, {Title: "2.2", Page: 4}}},
+		{Title: "Later", Page: 5},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v\nwant %+v", got, want)
+	}
+}
+
 func TestTidyOutline(t *testing.T) {
 	got := tidyOutline([]TOCEntry{
 		{Title: "Gone", Page: -1},

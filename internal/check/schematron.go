@@ -377,3 +377,163 @@ func (n *node) contains(d *node) bool {
 	}
 	return false
 }
+
+// checkNavSchematron applies EPUBCheck's epub-nav-30.sch to a navigation
+// document: one table of contents, labelled links and headings, landmarks
+// that differ, and flat page lists.
+func (c *checker) checkNavSchematron(it *item, root *node) {
+	errorf := func(n *node, format string, args ...any) {
+		c.report("RSC-005", it.path, n.line, n.col, fmt.Sprintf(format, args...))
+	}
+	warnf := func(n *node, format string, args ...any) {
+		c.report("RSC-017", it.path, n.line, n.col, fmt.Sprintf(format, args...))
+	}
+	types := func(n *node) []string {
+		v, _ := n.attrNS(opsNS, "type")
+		return strings.Fields(v)
+	}
+	isHeading := func(n *node) bool {
+		return n.name.Space == xhtmlNS && len(n.name.Local) == 2 && n.name.Local[0] == 'h' && n.name.Local[1] >= '1' && n.name.Local[1] <= '6'
+	}
+	// label is the text a link, span or heading offers: its own text, the
+	// alt text of images directly inside, and any aria-label within.
+	label := func(n *node) string {
+		var b strings.Builder
+		b.WriteString(n.text())
+		for _, k := range n.kids {
+			if k.isHTML("img") {
+				alt, _ := k.plainAttr("alt")
+				b.WriteString(alt)
+			}
+		}
+		n.walk(func(m *node) {
+			if l, ok := m.plainAttr("aria-label"); ok {
+				b.WriteString(l)
+			}
+		})
+		return normalizeSpace(b.String())
+	}
+
+	if body := root.child("body"); body != nil {
+		var tocs, pageLists, landmarks int
+		for _, n := range body.findAll("nav") {
+			t := types(n)
+			if n.isHTML("nav") {
+				if slices.Contains(t, "toc") {
+					tocs++
+				}
+				if slices.Contains(t, "page-list") {
+					pageLists++
+				}
+				if slices.Contains(t, "landmarks") {
+					landmarks++
+				}
+			}
+		}
+		if tocs != 1 {
+			errorf(body, `Exactly one "toc" nav element must be present`)
+		}
+		if pageLists > 1 {
+			errorf(body, `Multiple occurrences of the "page-list" nav element`)
+		}
+		if landmarks > 1 {
+			errorf(body, `Multiple occurrences of the "landmarks" nav element`)
+		}
+	}
+
+	// The table of contents and the page list follow the reading order:
+	// each link's target is no earlier in the spine than the one before.
+	for _, kind := range []string{"toc", "page-list"} {
+		last := -1
+		root.walk(func(n *node) {
+			if !n.isHTML("nav") || !slices.Contains(types(n), kind) {
+				return
+			}
+			for _, a := range n.findAll("a") {
+				href, ok := a.plainAttr("href")
+				if !a.isHTML("a") || !ok {
+					continue
+				}
+				p, ok := resolve(it.path, href)
+				pos, inSpine := c.order[p]
+				if !ok || !inSpine {
+					continue
+				}
+				if pos < last {
+					c.report("NAV-011", it.path, a.line, a.col, kind, href, "spine")
+				}
+				last = pos
+			}
+		})
+	}
+
+	root.walk(func(n *node) {
+		if isHeading(n) && label(n) == "" {
+			errorf(n, "Heading elements must contain text")
+		}
+		if !n.isHTML("nav") {
+			return
+		}
+		t, typed := types(n), n.name.Space == xhtmlNS
+		if _, ok := n.attrNS(opsNS, "type"); !ok || !typed {
+			return
+		}
+		special := slices.ContainsFunc(t, func(s string) bool { return s == "toc" || s == "page-list" || s == "landmarks" })
+		if !special {
+			first := (*node)(nil)
+			if len(n.kids) > 0 {
+				first = n.kids[0]
+			}
+			if first == nil || !isHeading(first) {
+				errorf(n, `nav elements other than "toc", "page-list" and "landmarks" must have a heading as their first child`)
+			}
+		}
+		if slices.Contains(t, "page-list") || slices.Contains(t, "landmarks") {
+			if len(n.findAll("ol")) != 1 {
+				v, _ := n.attrNS(opsNS, "type")
+				warnf(n, `A "%s" nav element should contain only a single ol descendant (no nested sublists)`, v)
+			}
+		}
+		// Links and spans inside the lists.
+		var anchors []*node
+		for _, ol := range n.findAll("ol") {
+			if !ol.isHTML("ol") {
+				continue
+			}
+			for _, a := range ol.findAll("a") {
+				if a.isHTML("a") && !slices.Contains(anchors, a) {
+					anchors = append(anchors, a)
+				}
+			}
+			for _, s := range ol.findAll("span") {
+				if s.isHTML("span") && label(s) == "" {
+					errorf(s, "Spans within nav elements must contain text")
+				}
+			}
+		}
+		for _, a := range anchors {
+			if label(a) == "" {
+				errorf(a, "Anchors within nav elements must contain text")
+			}
+		}
+		if slices.Contains(t, "landmarks") {
+			norm := func(a *node) ([]string, string) {
+				v, _ := a.attrNS(opsNS, "type")
+				return strings.Fields(strings.ToLower(v)), normalizeSpace(strings.ToLower(a.attr("href")))
+			}
+			for _, a := range anchors {
+				if _, ok := a.attrNS(opsNS, "type"); !ok {
+					errorf(a, `Missing epub:type attribute on anchor inside "landmarks" nav element`)
+				}
+				at, ah := norm(a)
+				for _, b := range anchors {
+					bt, bh := norm(b)
+					if a != b && ah == bh && slices.ContainsFunc(at, func(x string) bool { return slices.Contains(bt, x) }) {
+						errorf(a, `Another landmark was found with the same epub:type and same reference to "%s"`, ah)
+						break
+					}
+				}
+			}
+		}
+	})
+}

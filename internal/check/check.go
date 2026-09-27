@@ -74,6 +74,7 @@ type checker struct {
 	items    map[string]*item
 	declared map[string]*item
 	spine    map[string]bool // paths of spine items
+	order    map[string]int  // position of each spine item's path in the spine
 	fxl      bool            // the package is pre-paginated
 	fxlDocs  map[string]bool // content documents laid out as fixed pages
 	checked  map[string]bool // resources already checked, across renditions
@@ -335,6 +336,14 @@ var (
 		"data-nav", "dictionary", "glossary", "index", "search-key-map",
 	}
 
+	deprecatedRels = map[string]string{
+		"marc21xml-record": `the "record" keyword and the media-type "application/marcxml+xml"`,
+		"mods-record":      `the "record" keyword and the media-type "application/mods+xml"`,
+		"onix-record":      `the "record" keyword with the properties attribute value "onix"`,
+		"xml-signature":    "no signature-identifying link",
+		"xmp-record":       `the "record" keyword`,
+	}
+
 	coreMediaTypes = map[string]bool{
 		"application/xhtml+xml": true, "image/svg+xml": true,
 	}
@@ -348,12 +357,25 @@ func (c *checker) checkPackage() bool {
 		return false
 	}
 	pkg := doc.root()
-	schema := func(n *node, format string, args ...any) {
+	report := func(n *node, format string, args ...any) {
 		line, col := 0, 0
 		if n != nil {
 			line, col = n.line, n.col
 		}
 		c.report("RSC-005", c.opf, line, col, fmt.Sprintf(format, args...))
+	}
+	// An EPUB 3 package is validated against EPUBCheck's schema and
+	// Schematron rules. For any other version, the checks below stand in
+	// for them.
+	v3 := pkg.attr("version") == "3.0"
+	schema := func(n *node, format string, args ...any) {
+		if !v3 {
+			report(n, format, args...)
+		}
+	}
+	if v3 {
+		c.validateSchema(packageSchema, c.opf, data)
+		c.checkPackageSchematron(pkg)
 	}
 
 	// The prefix attribute maps prefixes to vocabularies; Dublin Core's
@@ -473,8 +495,25 @@ func (c *checker) checkPackage() bool {
 		}
 	}
 
+	// Deprecated properties and link relations.
+	for _, m := range meta.children("meta") {
+		switch p := normalizeSpace(m.attr("property")); {
+		case p == "rendition:viewport":
+			c.report("OPF-086", c.opf, m.line, m.col, p, "a custom prefixed property")
+		case p == "rendition:spread" && normalizeSpace(m.text()) == "portrait":
+			c.report("OPF-086", c.opf, m.line, m.col, "rendition:spread portrait", `"rendition:spread both"`)
+		}
+	}
+	for _, l := range meta.children("link") {
+		for _, rel := range strings.Fields(l.attr("rel")) {
+			if s, ok := deprecatedRels[rel]; ok {
+				c.report("OPF-086", c.opf, l.line, l.col, rel, s)
+			}
+		}
+	}
+
 	// Deprecated forms, which epubcheck warns about.
-	if b := pkg.child("bindings"); b != nil {
+	if b := pkg.child("bindings"); b != nil && !v3 {
 		c.report("RSC-017", c.opf, b.line, b.col, "Use of the bindings element is deprecated")
 	}
 	for _, m := range meta.kids {
@@ -485,12 +524,12 @@ func (c *checker) checkPackage() bool {
 		}
 	}
 
-	c.checkManifest(pkg, schema)
+	c.checkManifest(pkg, schema, report)
 	c.checkSpine(pkg, schema)
 	return true
 }
 
-func (c *checker) checkManifest(pkg *node, schema func(*node, string, ...any)) {
+func (c *checker) checkManifest(pkg *node, schema, report func(*node, string, ...any)) {
 	c.items, c.declared = map[string]*item{}, map[string]*item{}
 	man := pkg.child("manifest")
 	if man == nil {
@@ -508,7 +547,7 @@ func (c *checker) checkManifest(pkg *node, schema func(*node, string, ...any)) {
 		}
 		it.path, _ = resolve(c.opf, it.href)
 		if seenID[it.id] {
-			schema(n, `Duplicate ID "%s"`, it.id)
+			report(n, `Duplicate ID "%s"`, it.id)
 		}
 		seenID[it.id] = true
 		c.items[it.id] = it
@@ -552,10 +591,47 @@ func (c *checker) checkManifest(pkg *node, schema func(*node, string, ...any)) {
 			c.report("RSC-001", it.path, 0, 0, it.path)
 		}
 	}
+
+	// A media overlay must refer to the document that names it.
+	for _, n := range man.children("item") {
+		mo, ok := n.plainAttr("media-overlay")
+		if !ok {
+			continue
+		}
+		self, _ := resolve(c.opf, n.attr("href"))
+		if !c.overlayRefers(c.items[normalizeSpace(mo)], self) {
+			c.report("MED_013", c.opf, n.line, n.col)
+		}
+	}
+}
+
+// overlayRefers reports whether a media overlay has text for the document
+// at path.
+func (c *checker) overlayRefers(overlay *item, path string) bool {
+	if overlay == nil {
+		return false
+	}
+	data, ok := c.read(overlay.path)
+	if !ok {
+		return false
+	}
+	doc, perr := parseXML(data)
+	if perr != nil {
+		return false
+	}
+	found := false
+	doc.walk(func(n *node) {
+		if n.name.Local == "text" {
+			if p, ok := resolve(overlay.path, n.attr("src")); ok && p == path {
+				found = true
+			}
+		}
+	})
+	return found
 }
 
 func (c *checker) checkSpine(pkg *node, schema func(*node, string, ...any)) {
-	c.spine = map[string]bool{}
+	c.spine, c.order = map[string]bool{}, map[string]int{}
 	sp := pkg.child("spine")
 	if sp == nil {
 		schema(pkg, `element "spine" missing`)
@@ -577,7 +653,7 @@ func (c *checker) checkSpine(pkg *node, schema func(*node, string, ...any)) {
 		it, ok := c.items[idref]
 		if !ok {
 			c.report("OPF-049", c.opf, r.line, r.col, idref)
-			schema(r, `itemref idref "%s" does not resolve to a manifest item`, idref)
+			schema(r, "itemref element idref attribute does not resolve to a manifest item element")
 			continue
 		}
 		if seen[idref] {
@@ -585,10 +661,16 @@ func (c *checker) checkSpine(pkg *node, schema func(*node, string, ...any)) {
 		}
 		seen[idref] = true
 		c.spine[it.path] = true
+		if _, ok := c.order[it.path]; !ok {
+			c.order[it.path] = len(c.order)
+		}
 
 		// A spine entry can override the package's layout.
 		fxl := c.fxl
 		for _, p := range strings.Fields(r.attr("properties")) {
+			if p == "rendition:spread-portrait" {
+				c.report("OPF-086", c.opf, r.line, r.col, p, `"rendition:spread-both"`)
+			}
 			switch p {
 			case "rendition:layout-pre-paginated":
 				fxl = true

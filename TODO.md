@@ -22,14 +22,14 @@ complete workflow still reaches outside the binary.
     schema cannot express (forbidden descendants, ID references and the
     like, from EPUBCheck's Schematron) are written out in Go.
   - [x] CSS syntax errors; image formats and corruption.
-  - [x] A corpus of 86 books, each broken in one way, with EPUBCheck 5.4.0's
+  - [x] A corpus of 120 books, each broken in one way, with EPUBCheck 5.4.0's
     findings recorded; the built-in checks agree on every case, and CI
     re-runs EPUBCheck so the recording cannot drift.
   - [x] Agreement on the W3C EPUB 3 samples, with no false positives
     (`REALWORLD=dir go test -run TestRealWorld ./internal/check`).
-  - [ ] The navigation document's own schema rules, and package documents
-    against their schema, instead of the hand-written checks; `internal/rng`
-    can load EPUBCheck's schemas for both.
+  - [x] Navigation and package documents against EPUBCheck's schemas and
+    Schematron rules too, with its reading-order, deprecation and media
+    overlay checks.
   - [ ] The EPUB CSS profile's rules beyond syntax (`CSS-001` and on),
     fonts, and font obfuscation (`encryption.xml`).
   - [ ] Remote resources and the `remote-resources` property, media overlays,

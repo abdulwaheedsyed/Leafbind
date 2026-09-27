@@ -369,13 +369,14 @@ spine, prefixes, fixed-layout properties, several renditions), content and
 navigation documents (well-formedness, HTML content models, references,
 viewports, declared features), CSS syntax and images. It needs no Java.
 
-HTML content models, which elements and attributes may appear where, are
-checked against EPUBCheck's own XHTML schema, embedded unchanged and run by
-a RELAX NG validator written in Go for Leafbind (`internal/rng`). The rules
-the schema cannot express, such as no links inside links and ID references
-that must resolve, follow EPUBCheck's Schematron rules.
+Content, navigation and package documents are checked against EPUBCheck's
+own EPUB 3 schemas, embedded unchanged and run by a RELAX NG validator
+written in Go for Leafbind (`internal/rng`). The rules the schemas cannot
+express, such as no links inside links, ID references that must resolve,
+one table of contents, and metadata that refines what it should, follow
+EPUBCheck's Schematron rules.
 
-It is tested against EPUBCheck 5.4.0 itself: a corpus of 86 books, one valid
+It is tested against EPUBCheck 5.4.0 itself: a corpus of 120 books, one valid
 and each of the others broken in one particular way, with EPUBCheck's
 findings for every one recorded, and the built-in checks must agree with
 all of them. CI re-runs EPUBCheck on the corpus so the recording cannot

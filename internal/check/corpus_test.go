@@ -222,6 +222,7 @@ func (c corpusCase) data() []byte {
 }
 
 func corpus() []corpusCase {
+	const nav = "OEBPS/nav.xhtml"
 	v := validBook
 	moveFirst := func(b book, name string) book {
 		var first file
@@ -349,6 +350,105 @@ func corpus() []corpusCase {
 		{name: "nav-toc-missing", make: func() book { return v().edit("OEBPS/nav.xhtml", `epub:type="toc"`, `epub:type="landmarks"`) }},
 		{name: "nav-link-broken", make: func() book {
 			return v().edit("OEBPS/nav.xhtml", `href="text/page-002.xhtml"`, `href="text/page-009.xhtml"`)
+		}},
+
+		{name: "nav-two-tocs", make: func() book {
+			return v().edit(nav, "</nav>", `</nav><nav epub:type="toc"><ol><li><a href="text/page-001.xhtml">1</a></li></ol></nav>`)
+		}},
+		{name: "nav-link-empty", make: func() book {
+			return v().edit(nav, `<a href="text/page-002.xhtml">2</a>`, `<a href="text/page-002.xhtml"></a>`)
+		}},
+		{name: "nav-link-image-alt", make: func() book {
+			return v().edit(nav, `<a href="text/page-002.xhtml">2</a>`, `<a href="text/page-002.xhtml"><img src="images/page-002.jpg" alt="Two"/></a>`)
+		}},
+		{name: "nav-heading-empty", make: func() book { return v().edit(nav, "<h1>Contents</h1>", "<h1></h1>") }},
+		{name: "nav-li-without-link", make: func() book { return v().edit(nav, `<li><a href="text/page-002.xhtml">2</a></li>`, `<li>2</li>`) }},
+		{name: "nav-span-without-sublist", make: func() book {
+			return v().edit(nav, `<li><a href="text/page-002.xhtml">2</a></li>`, `<li><span>Part</span></li>`)
+		}},
+		{name: "nav-other-without-heading", make: func() book {
+			return v().edit(nav, "</nav>", `</nav><nav epub:type="loi"><ol><li><a href="text/page-001.xhtml">A picture</a></li></ol></nav>`)
+		}},
+		{name: "nav-landmarks-untyped", make: func() book {
+			return v().edit(nav, "</nav>", `</nav><nav epub:type="landmarks"><ol><li><a href="text/page-001.xhtml">Cover</a></li></ol></nav>`)
+		}},
+		{name: "nav-landmarks-duplicate", make: func() book {
+			return v().edit(nav, "</nav>", `</nav><nav epub:type="landmarks"><ol><li><a epub:type="cover" href="text/page-001.xhtml">Cover</a></li><li><a epub:type="cover" href="text/page-001.xhtml">Cover again</a></li></ol></nav>`)
+		}},
+		{name: "nav-page-list-nested", make: func() book {
+			return v().edit(nav, "</nav>", `</nav><nav epub:type="page-list" hidden="hidden"><ol><li><a href="text/page-001.xhtml">1</a><ol><li><a href="text/page-002.xhtml">2</a></li></ol></li></ol></nav>`)
+		}},
+		{name: "nav-nested-and-page-list", make: func() book {
+			return v().edit(nav, `<li><a href="text/page-001.xhtml">1</a></li>`, `<li><a href="text/page-001.xhtml">Part</a><ol><li><a href="text/page-001.xhtml">1</a></li></ol></li>`).
+				edit(nav, "</nav>", `</nav><nav epub:type="page-list" hidden="hidden"><ol><li><a href="text/page-001.xhtml">1</a></li><li><a href="text/page-002.xhtml">2</a></li></ol></nav>`)
+		}},
+
+		// Package document, against its schema and Schematron rules
+		{name: "opf-unknown-element", make: func() book { return v().edit(opf, "<manifest>", "<extra/><manifest>") }},
+		{name: "opf-linear-invalid", make: func() book {
+			return v().edit(opf, `<itemref idref="page-002"`, `<itemref idref="page-002" linear="maybe"`)
+		}},
+		{name: "opf-dir-invalid", make: func() book { return v().edit(opf, "<dc:title>", `<dc:title dir="up">`) }},
+		{name: "opf-guide-empty", make: func() book { return v().edit(opf, "</spine>", "</spine><guide></guide>") }},
+		{name: "opf-guide-duplicate", make: func() book {
+			return v().edit(opf, "</spine>", `</spine><guide><reference type="cover" href="text/page-001.xhtml"/><reference type="cover" href="text/page-001.xhtml"/></guide>`)
+		}},
+		{name: "opf-refines-missing", make: func() book {
+			return v().edit(opf, "</metadata>", `<meta property="title-type" refines="#nope">main</meta></metadata>`)
+		}},
+		{name: "opf-refines-absolute", make: func() book {
+			return v().edit(opf, "<dc:title>", `<dc:title id="t">`).edit(opf, "</metadata>", `<meta property="title-type" refines="http://example.com/#t">main</meta></metadata>`)
+		}},
+		{name: "opf-refines-item", make: func() book {
+			return v().edit(opf, "</metadata>", `<meta property="alternate-script" refines="text/page-001.xhtml">x</meta></metadata>`)
+		}},
+		{name: "opf-role-on-title", make: func() book {
+			return v().edit(opf, "<dc:title>", `<dc:title id="t">`).edit(opf, "</metadata>", `<meta property="role" refines="#t">aut</meta></metadata>`)
+		}},
+		{name: "opf-title-type-twice", make: func() book {
+			return v().edit(opf, "<dc:title>", `<dc:title id="t">`).edit(opf, "</metadata>", `<meta property="title-type" refines="#t">main</meta><meta property="title-type" refines="#t">subtitle</meta></metadata>`)
+		}},
+		{name: "opf-subject-term-only", make: func() book {
+			return v().edit(opf, "</metadata>", `<dc:subject id="s">Fiction</dc:subject><meta property="term" refines="#s">FIC</meta></metadata>`)
+		}},
+		{name: "opf-rendition-flow-invalid", make: func() book {
+			return v().edit(opf, "</metadata>", `<meta property="rendition:flow">fast</meta></metadata>`)
+		}},
+		{name: "opf-rendition-spread-refines", make: func() book {
+			return v().edit(opf, `<meta property="rendition:spread">none</meta>`, `<meta property="rendition:spread" refines="#book-id">none</meta>`)
+		}},
+		{name: "opf-rendition-viewport-invalid", make: func() book {
+			return v().edit(opf, "</metadata>", `<meta property="rendition:viewport">64x48</meta></metadata>`)
+		}},
+		{name: "opf-itemref-two-spreads", make: func() book {
+			return v().edit(opf, `<itemref idref="page-002" properties="rendition:layout-pre-paginated"/>`, `<itemref idref="page-002" properties="rendition:layout-pre-paginated page-spread-left page-spread-right"/>`)
+		}},
+		{name: "opf-link-record-refines", make: func() book {
+			return v().edit(opf, "</metadata>", `<link rel="record" refines="#book-id" href="https://example.com/record.xml" media-type="application/xml"/></metadata>`)
+		}},
+		{name: "opf-meta-auth", make: func() book {
+			return v().edit(opf, "</metadata>", `<meta property="meta-auth">someone</meta></metadata>`)
+		}},
+		{name: "opf-ncx-without-toc", make: func() book {
+			return v().edit(opf, "</manifest>", `<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/></manifest>`).
+				set("OEBPS/toc.ncx", []byte(`<?xml version="1.0" encoding="UTF-8"?><ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head/><docTitle><text>Test Book</text></docTitle><navMap><navPoint id="p1" playOrder="1"><navLabel><text>1</text></navLabel><content src="text/page-001.xhtml"/></navPoint></navMap></ncx>`))
+		}},
+		{name: "opf-rendition-spread-portrait", make: func() book {
+			return v().edit(opf, `<itemref idref="page-002" properties="rendition:layout-pre-paginated"/>`, `<itemref idref="page-002" properties="rendition:layout-pre-paginated rendition:spread-portrait"/>`)
+		}},
+		{name: "opf-rendition-spread-portrait-value", make: func() book {
+			return v().edit(opf, `<meta property="rendition:spread">none</meta>`, `<meta property="rendition:spread">portrait</meta>`)
+		}},
+		{name: "opf-link-deprecated-rel", make: func() book {
+			return v().edit(opf, "</metadata>", `<link rel="marc21xml-record" href="https://example.com/record.xml" media-type="application/marcxml+xml"/></metadata>`)
+		}},
+		{name: "nav-out-of-order", make: func() book {
+			return v().edit(nav, `<li><a href="text/page-001.xhtml">1</a></li>
+<li><a href="text/page-002.xhtml">2</a></li>`, `<li><a href="text/page-002.xhtml">2</a></li>
+<li><a href="text/page-001.xhtml">1</a></li>`)
+		}},
+		{name: "opf-media-overlay-not-smil", make: func() book {
+			return v().edit(opf, `<item id="page-002" href="text/page-002.xhtml" media-type="application/xhtml+xml"/>`, `<item id="page-002" href="text/page-002.xhtml" media-type="application/xhtml+xml" media-overlay="css"/>`)
 		}},
 
 		// Patterns found in the W3C/IDPF sample EPUBs

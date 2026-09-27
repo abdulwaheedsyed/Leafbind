@@ -85,7 +85,26 @@ func (w *worker) outline(slot func(int) int) ([]TOCEntry, error) {
 	if all, err := w.inst.GetBookmarks(&requests.GetBookmarks{Document: w.doc}); err == nil {
 		addDestinations(raw, all.Bookmarks)
 	}
-	return tidyOutline(raw, slot), nil
+	last := -1
+	return inReadingOrder(tidyOutline(raw, slot), &last), nil
+}
+
+// inReadingOrder drops entries that would send the reader backwards, such
+// as a bookmark to the cover listed after the chapters: a table of contents
+// must follow the book's order. A dropped entry's children take its place,
+// so they are kept where they are in order themselves.
+func inReadingOrder(entries []TOCEntry, last *int) []TOCEntry {
+	var out []TOCEntry
+	for _, e := range entries {
+		if e.Page < *last {
+			out = append(out, inReadingOrder(e.Children, last)...)
+			continue
+		}
+		*last = e.Page
+		e.Children = inReadingOrder(e.Children, last)
+		out = append(out, e)
+	}
+	return out
 }
 
 // addDestinations fills in the pages of entries whose bookmark names its

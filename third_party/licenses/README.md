@@ -17,7 +17,7 @@ components compiled into the embedded PDFium WebAssembly module. They are copied
 - `epubcheck/`: the license of [EPUBCheck](https://github.com/w3c/epubcheck),
   whose message catalogue `internal/check` is generated from.
 - `w3c/`: the W3C Software Notice and License (2002), which the MathML
-  schema under `internal/check/schema/xhtml/mod/mathml` refers to but does
+  schema under `internal/check/schema/30/mod/mathml` refers to but does
   not include, from [w3.org](https://www.w3.org/copyright/software-license-2002/).
   The other vendored schemas carry their licenses beside them.
 - `emscripten/`: the license of the Emscripten toolchain, whose C runtime is

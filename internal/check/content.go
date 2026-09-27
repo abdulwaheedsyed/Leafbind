@@ -45,7 +45,7 @@ func (c *checker) checkXHTML(it *item, data []byte) {
 	}
 
 	if slicesContains(it.props, "nav") {
-		c.checkNav(it, root)
+		c.checkNavSchematron(it, root)
 	}
 	c.checkFeatureProps(it, root)
 
@@ -181,16 +181,6 @@ func (c *checker) checkFeatureProps(it *item, root *node) {
 			c.report("OPF-015", it.path, 0, 0, p)
 		}
 	}
-}
-
-// checkNav requires a navigation document to have a table of contents.
-func (c *checker) checkNav(it *item, root *node) {
-	for _, n := range root.findAll("nav") {
-		if t, ok := n.attrNS(opsNS, "type"); ok && slicesContains(strings.Fields(t), "toc") {
-			return
-		}
-	}
-	c.report("RSC-005", it.path, root.line, root.col, `the nav file must contain exactly one "nav" element with the epub:type "toc"`)
 }
 
 // checkViewport requires a fixed-layout document to declare its size, as
