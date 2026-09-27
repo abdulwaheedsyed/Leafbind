@@ -226,7 +226,7 @@
     <p>Released under the MIT License. It includes third-party software — Go, PDFium and others — under their own licenses.</p>
     <p class="about-credits">This software is based in part on the work of the FreeType Team and of the Independent JPEG Group.</p>
     <menu>
-      <a class="btn ghost" id="licenses" target="_blank" rel="noopener">View licenses</a>
+      <button class="btn ghost" id="licenses" type="button">View licenses</button>
       <button class="btn primary" value="close">Close</button>
     </menu>
   </form>
@@ -259,6 +259,23 @@
     <input type="range" id="pv-slider" min="1" value="1" aria-label="Page">
     <p><span id="pv-pos"></span><span id="pv-fit"></span></p>
   </div>
+</dialog>
+
+<dialog id="licenses-dialog" class="licenses" aria-labelledby="licenses-title">
+  <form method="dialog">
+    <header><h2 id="licenses-title">Licenses</h2><button class="icon-btn" value="close" title="Close"><svg><use href="#i-x"/></svg></button></header>
+    <pre id="licenses-text">Loading…</pre>
+  </form>
+</dialog>
+
+<dialog id="confirm-dialog" aria-labelledby="confirm-text">
+  <form method="dialog">
+    <p id="confirm-text"></p>
+    <menu>
+      <button class="btn ghost" value="cancel">Cancel</button>
+      <button class="btn primary" value="ok" id="confirm-ok">OK</button>
+    </menu>
+  </form>
 </dialog>
 
 <div class="stopped" id="stopped" hidden>

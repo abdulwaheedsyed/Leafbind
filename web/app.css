@@ -421,6 +421,15 @@ dialog.preview[open] { display: grid; }
   .pv-turn { width: 36px; height: 36px; }
 }
 
+dialog.licenses { width: min(760px, calc(100vw - 32px)); }
+dialog.licenses header { justify-content: space-between; }
+dialog.licenses pre {
+  max-height: min(60vh, 560px); overflow: auto; margin: 0; padding: 12px 14px; border-radius: var(--radius-sm);
+  font: 11.5px/1.5 var(--mono); white-space: pre-wrap; color: var(--text-2); background: var(--sunken); border: 1px solid var(--border);
+}
+#confirm-dialog p { margin: 0; color: var(--text); font-size: 14px; }
+.toast .btn { margin-left: auto; flex: none; }
+
 .stopped { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: var(--bg); text-align: center; }
 .stopped .logo { width: 48px; height: 48px; margin-bottom: 12px; }
 .stopped h2 { font-size: 18px; }

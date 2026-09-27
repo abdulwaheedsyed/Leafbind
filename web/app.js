@@ -148,13 +148,44 @@ $("#theme").addEventListener("click", () => {
 
 // ---------- toasts ----------
 
-function toast(message, kind = "bad") {
+function toast(message, kind = "bad", action) {
   const t = document.createElement("div");
   t.className = "toast " + kind;
   t.innerHTML = icon(kind === "ok" ? "check" : "alert") + "<span></span>";
   t.querySelector("span").textContent = message;
+  if (action) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "btn ghost small"; b.textContent = action.label;
+    b.addEventListener("click", () => { action.run(); t.remove(); });
+    t.append(b);
+  }
   $("#toasts").append(t);
-  setTimeout(() => t.remove(), 6000);
+  setTimeout(() => t.remove(), action ? 10000 : 6000);
+}
+
+// ask shows a question in the page and resolves to whether it was accepted.
+// window.confirm is not used: a native web view may not show it.
+function ask(question, okLabel) {
+  const d = $("#confirm-dialog");
+  $("#confirm-text").textContent = question;
+  $("#confirm-ok").textContent = okLabel;
+  d.returnValue = "";
+  d.showModal();
+  return new Promise((resolve) => d.addEventListener("close", () => resolve(d.returnValue === "ok"), { once: true }));
+}
+
+// In the native window there is no browser to download with, so books are
+// saved to the Downloads folder instead, with a way to show them.
+async function saveBooks(path, what) {
+  try {
+    const res = await (await api(path, { method: "POST" })).json();
+    const saved = Array.isArray(res) ? res : [res];
+    if (!saved.length) return;
+    const where = saved.length === 1 ? saved[0].name : plural(saved.length, "book");
+    toast(`Saved ${where} to Downloads`, "ok", {
+      label: "Show", run: () => api("/api/reveal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: saved[0].path }) }).catch((e) => toast(e.message)),
+    });
+  } catch (err) { toast(`Could not save ${what}: ${err.message}`); }
 }
 
 // ---------- rendering ----------
@@ -212,6 +243,11 @@ function card(job) {
     } catch (err) { toast(err.message); }
   });
   $(".preview-btn", li).addEventListener("click", () => openPreview(job.id));
+  $(".download", li).addEventListener("click", (e) => {
+    if (!state.info || !state.info.native) return; // a browser downloads the link
+    e.preventDefault();
+    saveBooks(`/api/jobs/${job.id}/save`, "the book");
+  });
   $(".cover", li).addEventListener("click", () => { if (state.jobs.get(job.id).state === "done") openPreview(job.id); });
   cards.set(job.id, li);
   return li;
@@ -366,7 +402,6 @@ function renderInfo() {
   $("#engine").hidden = i.engineReady || !!i.engineError;
   if (i.engineError) toast("The PDF engine did not start: " + i.engineError);
   $("#about-version").textContent = "Version " + i.version;
-  $("#licenses").href = withToken("/api/licenses");
   $("#epubcheck-note").textContent = i.epubcheck
     ? "A second opinion from the W3C's validator. Takes a few seconds a book."
     : "Install epubcheck to use it; the built-in validator already covers what it checks.";
@@ -647,10 +682,22 @@ window.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "o") { e.preventDefault(); $("#picker").click(); }
 });
 
+$("#download-all").addEventListener("click", (e) => {
+  if (!state.info || !state.info.native) return;
+  e.preventDefault();
+  saveBooks("/api/save-all", "the books");
+});
+
 $("#about").addEventListener("click", () => $("#about-dialog").showModal());
+$("#licenses").addEventListener("click", async () => {
+  const d = $("#licenses-dialog");
+  d.showModal();
+  try { $("#licenses-text").textContent = await (await api("/api/licenses")).text(); }
+  catch (err) { $("#licenses-text").textContent = err.message; }
+});
 $("#quit").addEventListener("click", async () => {
   const running = [...state.jobs.values()].some((j) => j.state === "queued" || j.state === "converting");
-  if (running && !confirm("A book is still converting. Quit anyway?")) return;
+  if (running && !(await ask("A book is still converting. Quit anyway?", "Quit"))) return;
   try { await api("/api/quit", { method: "POST" }); } catch {}
   $("#stopped").hidden = false;
 });

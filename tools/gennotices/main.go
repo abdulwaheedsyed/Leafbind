@@ -38,6 +38,22 @@ type component struct {
 	Note    string
 }
 
+// moduleExtras adds to what is found in a module: license texts of what it
+// embeds, and where it is linked.
+var moduleExtras = map[string]struct {
+	files         []string
+	license, note string
+}{
+	"github.com/ebitengine/purego": {note: "Linked into the macOS builds only, for the native window."},
+	"github.com/jchv/go-webview2": {
+		files:   []string{"webviewloader/sdk/LICENSE.txt"},
+		license: "; BSD-3-Clause (WebView2 SDK)",
+		note: "Linked into the Windows builds only, for the native window. It embeds WebView2Loader.dll from " +
+			"Microsoft's WebView2 SDK, whose license follows the module's.",
+	},
+	"github.com/jchv/go-winloader": {note: "Linked into the Windows builds only."},
+}
+
 // Components whose material is carried in Leafbind's own source.
 var sourceComponents = []component{
 	{Name: "EPUBCheck", Version: "5.4.0", URL: "https://github.com/w3c/epubcheck", License: "BSD-3-Clause",
@@ -104,9 +120,13 @@ func main() {
 		if len(files) == 0 {
 			log.Fatalf("%s %s: no license file found in %s", m.Path, m.Version, m.Dir)
 		}
+		x := moduleExtras[m.Path]
+		for _, f := range x.files {
+			files = append(files, filepath.Join(m.Dir, f))
+		}
 		comps = append(comps, component{
 			Name: m.Path, Version: m.Version, URL: "https://" + m.Path,
-			License: identify(files[0]), Files: files,
+			License: identify(files[0]) + x.license, Files: files, Note: x.note,
 		})
 	}
 	for _, c := range sourceComponents {
@@ -211,6 +231,8 @@ func identify(file string) string {
 		return "Apache-2.0"
 	case strings.Contains(s, "Permission is hereby granted, free of charge"):
 		return "MIT"
+	case strings.Contains(s, "Permission to use, copy, modify, and/or distribute this software for any"):
+		return "ISC"
 	case strings.Contains(s, "Redistribution and use in source and binary forms") && strings.Contains(s, "Neither the name"):
 		return "BSD-3-Clause"
 	case strings.Contains(s, "Redistribution and use in source and binary forms"):

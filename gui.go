@@ -35,7 +35,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"github.com/abdulwaheedsyed/leafbind/internal/window"
 )
 
 //go:embed web
@@ -209,6 +212,10 @@ type guiServer struct {
 	epubcheck bool
 	quit      chan struct{}
 	quitOnce  sync.Once
+
+	native    atomic.Bool // the page is in the native window, which cannot download
+	saved     []string    // files saved to the Downloads folder, which may be shown
+	onConnect func()      // called once, when a page first connects
 }
 
 // runGUI serves the interface until the window is closed, Quit is chosen, or
@@ -236,11 +243,53 @@ func runGUI(ctx context.Context, g guiOptions, out io.Writer) error {
 
 	link := s.origin + "/?t=" + s.token
 	fmt.Fprintf(out, "Leafbind is running at\n\n    %s\n\nClose its window or press Ctrl+C to quit.\n", link)
+	if os.Getenv("LEAFBIND_SMOKE_TEST") != "" {
+		// For CI: quit as soon as a page has loaded and connected, which
+		// shows the window works.
+		s.onConnect = func() {
+			where := "a browser"
+			if s.native.Load() {
+				where = "the native window"
+			}
+			fmt.Fprintf(out, "Leafbind: the interface connected, in %s\n", where)
+			s.quitOnce.Do(func() { close(s.quit) })
+		}
+	}
+
+	// The native window, where there is one, unless a browser is asked for.
+	if !g.NoBrowser && os.Getenv("LEAFBIND_BROWSER") == "" {
+		detachConsole() // Windows: close the console of a double-clicked program
+		s.native.Store(true)
+		done := make(chan struct{})
+		go func() {
+			select {
+			case <-ctx.Done():
+			case <-s.quit:
+			case <-done:
+				return
+			}
+			window.Close()
+		}()
+		err := window.Run(window.Options{
+			Title: "Leafbind", URL: link, Width: 1280, Height: 860, MinW: 900, MinH: 620,
+			DataDir: webviewDataDir(),
+		})
+		close(done)
+		if err == nil {
+			s.shutdown(srv)
+			return nil
+		}
+		s.native.Store(false)
+		if !errors.Is(err, window.ErrUnavailable) {
+			fmt.Fprintf(out, "The window could not open (%v); using a browser instead.\n", err)
+		}
+	}
+
 	if !g.NoBrowser {
 		if err := openUI(link); err != nil {
 			fmt.Fprintf(out, "Could not open a browser (%v); open the address above.\n", err)
 		}
-		detachConsole() // Windows: close the console of a double-clicked program
+		detachConsole()
 	}
 
 	idle := g.idleExit
@@ -268,6 +317,12 @@ loop:
 		}
 	}
 
+	s.shutdown(srv)
+	return nil
+}
+
+// shutdown cancels conversions and stops the server and the PDF engine.
+func (s *guiServer) shutdown(srv *http.Server) {
 	s.mu.Lock()
 	for _, j := range s.all {
 		if j.cancel != nil {
@@ -281,7 +336,16 @@ loop:
 	if s.eng != nil {
 		s.eng.Close()
 	}
-	return nil
+}
+
+// webviewDataDir is where the native web view may keep its data, rather
+// than beside the program.
+func webviewDataDir() string {
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, "Leafbind", "WebView")
 }
 
 func newGUIServer(ctx context.Context, hostport string) (*guiServer, error) {
@@ -365,6 +429,9 @@ func (s *guiServer) handler() http.Handler {
 	api.HandleFunc("GET /api/jobs/{id}/preview", s.preview)
 	api.HandleFunc("GET /api/jobs/{id}/pages/{n}", s.pageImage)
 	api.HandleFunc("GET /api/download-all", s.downloadAll)
+	api.HandleFunc("POST /api/jobs/{id}/save", s.save)
+	api.HandleFunc("POST /api/save-all", s.saveAll)
+	api.HandleFunc("POST /api/reveal", s.reveal)
 	api.HandleFunc("GET /api/licenses", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		io.WriteString(w, licenseText+"\n"+noticesText)
@@ -432,10 +499,11 @@ type infoView struct {
 	EngineError string      `json:"engineError,omitempty"`
 	Defaults    jobSettings `json:"defaults"`
 	OS          string      `json:"os"`
+	Native      bool        `json:"native"` // in the native window: save to Downloads
 }
 
 func (s *guiServer) info() infoView {
-	v := infoView{Version: version, Epubcheck: s.epubcheck, EngineReady: s.engineReady(), Defaults: defaultSettings(), OS: runtime.GOOS}
+	v := infoView{Version: version, Epubcheck: s.epubcheck, EngineReady: s.engineReady(), Defaults: defaultSettings(), OS: runtime.GOOS, Native: s.native.Load()}
 	select {
 	case <-s.engDone:
 		if s.engErr != nil {
@@ -463,6 +531,9 @@ func (s *guiServer) events(w http.ResponseWriter, r *http.Request) {
 	ch := make(chan []byte, 256)
 	s.mu.Lock()
 	s.subs[ch] = struct{}{}
+	if !s.seen && s.onConnect != nil {
+		go s.onConnect()
+	}
 	s.seen = true
 	jobs := make([]jobView, 0, len(s.order))
 	for _, id := range s.order {

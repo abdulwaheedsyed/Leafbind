@@ -92,6 +92,45 @@ jobs:
         env:
           EPUBCHECK_VERIFY: "1"
 
+  # The native window: the interface must load in the system web view, not
+  # fall back to a browser. LEAFBIND_SMOKE_TEST makes the program quit, and
+  # say where, once the page has connected.
+  native-window:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, arch: amd64 }
+          - { os: windows-11-arm, arch: arm64 }
+          - { os: macos-latest, arch: arm64 }
+          - { os: macos-latest, arch: amd64 } # under Rosetta
+    name: native window (${{ matrix.os }}, ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          ext=
+          if [ "$RUNNER_OS" = Windows ]; then go run ./tools/packaging winres; ext=.exe; fi
+          go build -o "smoke/leafbind$ext" .
+      - name: The interface loads in the native window
+        shell: bash
+        env:
+          LEAFBIND_SMOKE_TEST: "1"
+        run: |
+          bin=./smoke/leafbind
+          if [ "$RUNNER_OS" = Windows ]; then bin=./smoke/leafbind.exe; fi
+          out=$(perl -e 'alarm 120; exec @ARGV' "$bin" 2>&1) || true
+          echo "$out"
+          echo "$out" | grep -q "connected, in the native window"
+
   # The application bundle: signed the way releases are, then checked by
   # the tools macOS itself uses.
   macos-app:
@@ -123,6 +162,15 @@ jobs:
         with:
           go-version-file: go.mod
       - run: make package
+      # The Linux binaries must stay static, to run on musl systems and in
+      # minimal containers; a dependency that needs the dynamic loader would
+      # quietly change that.
+      - name: Linux binaries are statically linked
+        run: |
+          for f in dist/leafbind-*-linux-amd64 dist/leafbind-*-linux-arm64; do
+            file "$f"
+            file "$f" | grep -q "statically linked"
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: leafbind-${{ github.sha }}

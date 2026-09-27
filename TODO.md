@@ -36,15 +36,10 @@ complete workflow still reaches outside the binary.
     `epub:type` vocabularies, SVG content documents, and EPUB 2 packages.
   - [x] Stop running an installed epubcheck by default; `--epubcheck` asks
     for it.
-- [ ] **A native window for the GUI, instead of the browser.** The interface
-  opens in an installed Chrome, Edge or Chromium as an app window, or in the
-  default browser. A native window needs the system web view — WebView2 on
-  Windows, WKWebView on macOS, WebKitGTK on Linux — and the usual Go bindings
-  need cgo, which would end the single static, cross-compiled binary. Look at
-  loading those libraries at run time without cgo (for example with
-  [purego](https://github.com/ebitengine/purego)): straightforward on
-  Windows and macOS, where the web view is part of the system; on Linux,
-  WebKitGTK is not always installed, so keep the browser as a fallback.
+- [x] **A native window for the GUI, instead of the browser,** on Windows
+  (WebView2, through go-webview2) and macOS (WKWebView, through purego),
+  both without cgo. Linux keeps the browser: loading WebKitGTK would make
+  its binary depend on glibc.
 - [x] **A page preview, to lessen the need for Kindle Previewer.** Amazon's
   Kindle Previewer is proprietary and cannot be built in, but its main use
   here can be: checking that pages look right before sending a book to a

@@ -126,8 +126,9 @@ func infoPlist(version string) []byte {
 	<string>public.app-category.productivity</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>12.0</string>
-	<!-- The interface is a browser window; the program itself has no
-	     windows or menus, so it runs without a Dock icon. -->
+	<!-- No Dock icon until the native window opens, when the program makes
+	     itself a regular application; if the window cannot open, the
+	     interface is a browser's, and the program stays in the background. -->
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSHighResolutionCapable</key>

@@ -147,11 +147,20 @@ or a missing chapter before you send the book.
   <img src="docs/screenshots/leafbind-preview-light.png" alt="Leafbind's preview: a page of a novel on a Kindle Paperwhite-sized screen, with the book's chapters listed beside it and the current chapter highlighted.">
 </picture>
 
-The interface is a small web app built into the binary. It opens in an app
-window of Chrome, Edge, Chromium or Brave when one is installed, and in the
-default browser otherwise. Set `LEAFBIND_BROWSER` to `default` to
-always use the default browser, or to the path of a Chromium-based browser
-to use that one. Closing the window, or choosing Quit, ends the program.
+The interface is a small web app built into the binary. On Windows and
+macOS it opens in a window of its own, drawn by the web view the system
+provides: WebView2 on Windows and WKWebView on macOS. Books are then saved
+to the Downloads folder, with a button to show them. On Linux, and where the
+web view is missing, it opens in an app window of Chrome, Edge, Chromium or
+Brave when one is installed, and in the default browser otherwise. Set
+`LEAFBIND_BROWSER` to `default` to use the default browser instead, or to
+the path of a Chromium-based browser to use that one. Closing the window, or
+choosing Quit, ends the program.
+
+The web views are loaded when the window opens, without cgo, so the binary
+is still built for every platform from one machine. Linux has no native
+window on purpose: WebKitGTK would make the Linux binary depend on glibc,
+and it would no longer run on musl systems or in minimal containers.
 
 `--no-browser` prints the interface's address instead of opening it, which
 suits a machine you reach over SSH:
