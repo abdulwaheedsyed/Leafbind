@@ -84,7 +84,7 @@ func TestTrimPages(t *testing.T) {
 	found := []content{
 		{box: box{0.30, 0.1, 0.9, 0.9}, bg: 250},  // right-hand page: wide inner margin on the left
 		{box: box{0.1, 0.1, 0.70, 0.85}, bg: 248}, // left-hand page
-		{bleed: true},                             // a photograph
+		{bleed: true}, // a photograph
 		{blank: true, bg: 251},
 		{box: box{0.2, 0.3, 0.8, 0.5}, bg: 60}, // a dark cover
 	}
