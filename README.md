@@ -133,6 +133,11 @@ offered for download, one at a time or all together. The window follows the
 system's light or dark theme. Each book can be limited to a page range, and
 a password-protected PDF asks for its password, which is kept in memory only.
 
+Every book keeps its own settings, so an Urdu book and an English deck can
+convert side by side. With no book selected, the settings panel applies to
+the books added next and to every book not yet converted; click a book to
+change its settings alone. Each card sums up the settings it will use.
+
 **Preview** opens a finished book on a Kindle-sized screen, read back from the
 EPUB itself. Pages are scaled to fit the screen as a Kindle scales a
 fixed-layout page, so you can see how much of the screen each one fills, and
@@ -198,7 +203,7 @@ Options may appear anywhere on the command line, as `--name value`,
 | `--orientation X` | detected | Force `portrait`, `landscape`, `auto` or `none`. |
 | `--mixed` | off | Keep each page's own canvas instead of one shared canvas. |
 | `--trim` | off | Crop empty margins so the content fills more of the screen. Left and right pages are trimmed apart and kept the same size; covers and full-bleed pages stay whole. |
-| `--split` | off | Split two-page spreads, pages wider than tall, into single pages, in reading order. For scans of an open book; portrait pages stay whole. |
+| `--split` | off | Split two-page spreads, pages wider than tall, into single pages, in reading order, at each spread's gutter. For scans of an open book; portrait pages stay whole. |
 | `--pages RANGE` | all | Convert only these pages, such as `1-20,25,30-`; numbers are the PDF's page positions, from 1. The book keeps the PDF's page order. |
 | `--password TEXT` | | Password of an encrypted PDF. `LEAFBIND_PASSWORD` in the environment works too, and keeps it out of the process list. |
 | `--toc X` | `bookmarks` | Table of contents: `bookmarks`, from the PDF's outline when it has one, otherwise one entry per page; or `pages`, always one entry per page. |
@@ -311,7 +316,10 @@ that should stay crisp when zoomed.
    engine, including any `/Rotate`, so a rotated page is never mistaken for the
    wrong orientation.
 3. **Split and trim,** when asked. With `--split`, each page wider than tall
-   becomes its two halves. With `--trim`, every page is rendered small to
+   becomes its two halves, divided at its gutter: the dark line of the fold
+   in a scan, or the blank gap between the pages of a spread made digitally,
+   looked for in the middle fifth of the page, and the centre when neither
+   is there. With `--trim`, every page is rendered small to
    find its content; the content boxes of the left-hand pages are joined,
    and of the right-hand pages, a margin is added, and the two are made the
    same size, so pages do not jump as they turn. Pages whose content reaches

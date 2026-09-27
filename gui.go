@@ -421,7 +421,7 @@ func (s *guiServer) handler() http.Handler {
 	api.HandleFunc("GET /api/events", s.events)
 	api.HandleFunc("POST /api/files", s.upload)
 	api.HandleFunc("POST /api/convert", s.convert)
-	api.HandleFunc("PATCH /api/jobs/{id}", s.rename)
+	api.HandleFunc("PATCH /api/jobs/{id}", s.update)
 	api.HandleFunc("POST /api/jobs/{id}/unlock", s.unlock)
 	api.HandleFunc("DELETE /api/jobs/{id}", s.remove)
 	api.HandleFunc("GET /api/jobs/{id}/epub", s.download)
@@ -618,6 +618,7 @@ func (s *guiServer) upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var added []jobView
+	initial := func() *jobSettings { d := defaultSettings(); return &d }()
 	for {
 		part, err := mr.NextPart()
 		if err == io.EOF {
@@ -626,6 +627,16 @@ func (s *guiServer) upload(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, "reading the upload: "+err.Error(), http.StatusBadRequest)
 			return
+		}
+		// The settings the books start with come first, as a field.
+		if part.FormName() == "settings" {
+			var st jobSettings
+			if err := json.NewDecoder(io.LimitReader(part, 1<<16)).Decode(&st); err == nil {
+				if _, err := st.options("x", "", "", 1); err == nil {
+					initial = &st
+				}
+			}
+			continue
 		}
 		if part.FormName() != "file" {
 			continue
@@ -650,9 +661,10 @@ func (s *guiServer) upload(w http.ResponseWriter, r *http.Request) {
 		}
 
 		j := &job{pdf: pdf, epub: filepath.Join(s.dir, id+".epub")}
+		st := *initial
 		j.view = jobView{
 			ID: id, File: name, Bytes: n, State: stateInspecting,
-			Title: strings.TrimSuffix(name, filepath.Ext(name)),
+			Title: strings.TrimSuffix(name, filepath.Ext(name)), Settings: &st,
 		}
 		s.mu.Lock()
 		s.all[id] = j
@@ -742,10 +754,13 @@ func (s *guiServer) inspect(id string) {
 }
 
 type convertRequest struct {
-	IDs      []string          `json:"ids"`
-	Settings jobSettings       `json:"settings"`
-	Titles   map[string]string `json:"titles"`
-	Pages    map[string]string `json:"pages"` // page range per file; missing or "" is all
+	IDs []string `json:"ids"`
+	// Each book converts with its entry in Books, or else with Settings,
+	// for every book of the request, or else with the settings it has.
+	Books    map[string]jobSettings `json:"books"`
+	Settings *jobSettings           `json:"settings"`
+	Titles   map[string]string      `json:"titles"`
+	Pages    map[string]string      `json:"pages"` // page range per file; missing or "" is all
 }
 
 func (s *guiServer) convert(w http.ResponseWriter, r *http.Request) {
@@ -756,6 +771,19 @@ func (s *guiServer) convert(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	settingsFor := func(j *job) jobSettings {
+		if st, ok := req.Books[j.view.ID]; ok {
+			return st
+		}
+		if req.Settings != nil {
+			return *req.Settings
+		}
+		if j.view.Settings != nil {
+			return *j.view.Settings
+		}
+		return defaultSettings()
+	}
 
 	// Validate everything before queueing anything.
 	for _, id := range req.IDs {
@@ -768,7 +796,8 @@ func (s *guiServer) convert(w http.ResponseWriter, r *http.Request) {
 		if t, ok := req.Titles[id]; ok {
 			title = strings.TrimSpace(t)
 		}
-		if _, err := req.Settings.options(title, j.pdf, j.epub, s.jobs); err != nil {
+		st := settingsFor(j)
+		if _, err := st.options(title, j.pdf, j.epub, s.jobs); err != nil {
 			http.Error(w, j.view.File+": "+err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -797,7 +826,7 @@ func (s *guiServer) convert(w http.ResponseWriter, r *http.Request) {
 		if t, ok := req.Titles[id]; ok {
 			j.view.Title = strings.TrimSpace(t)
 		}
-		st := req.Settings
+		st := settingsFor(j)
 		j.view.Settings = &st
 		j.view.Range = strings.TrimSpace(req.Pages[id])
 		j.view.State, j.view.Error, j.view.Result = stateQueued, "", nil
@@ -834,11 +863,18 @@ func (s *guiServer) unlock(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (s *guiServer) rename(w http.ResponseWriter, r *http.Request) {
+// update changes a book's title, its settings, or both. Settings cannot
+// change while the book is waiting or converting.
+func (s *guiServer) update(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Title string `json:"title"`
+		Title    *string      `json:"title"`
+		Settings *jobSettings `json:"settings"`
 	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil || strings.TrimSpace(body.Title) == "" {
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil {
+		http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if body.Title != nil && strings.TrimSpace(*body.Title) == "" {
 		http.Error(w, "a non-empty title is required", http.StatusBadRequest)
 		return
 	}
@@ -849,7 +885,20 @@ func (s *guiServer) rename(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	j.view.Title = strings.TrimSpace(body.Title)
+	if st := body.Settings; st != nil {
+		if j.view.State == stateQueued || j.view.State == stateConverting {
+			http.Error(w, "the book is converting; its settings can change when it is done", http.StatusConflict)
+			return
+		}
+		if _, err := st.options(j.view.Title, "", "", 1); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		j.view.Settings = st
+	}
+	if body.Title != nil {
+		j.view.Title = strings.TrimSpace(*body.Title)
+	}
 	s.publish(j, true)
 	w.WriteHeader(http.StatusNoContent)
 }

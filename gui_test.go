@@ -162,8 +162,18 @@ func waitJobs(t *testing.T, ch <-chan sseEvent, state jobState, ids ...string) m
 
 func upload(t *testing.T, s *guiServer, base string, files map[string][]byte) []jobView {
 	t.Helper()
+	return uploadWith(t, s, base, files, nil)
+}
+
+// uploadWith uploads files that start with the given settings.
+func uploadWith(t *testing.T, s *guiServer, base string, files map[string][]byte, settings *jobSettings) []jobView {
+	t.Helper()
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
+	if settings != nil {
+		b, _ := json.Marshal(settings)
+		mw.WriteField("settings", string(b))
+	}
 	for name, data := range files {
 		w, _ := mw.CreateFormFile("file", name)
 		w.Write(data)
@@ -212,14 +222,14 @@ func TestGUIConvertFlow(t *testing.T) {
 	// Invalid settings are refused before anything is queued.
 	bad := defaultSettings()
 	bad.Lang = "not a language"
-	b, _ := json.Marshal(convertRequest{IDs: ids, Settings: bad})
+	b, _ := json.Marshal(convertRequest{IDs: ids, Settings: &bad})
 	if res := req(t, "POST", base+"/api/convert", bytes.NewReader(b), map[string]string{"X-Token": s.token}); res.StatusCode != 400 {
 		t.Errorf("bad settings: status %d, want 400", res.StatusCode)
 	}
 
 	set := defaultSettings()
 	set.Direction, set.Lang = "rtl", "ar"
-	b, _ = json.Marshal(convertRequest{IDs: ids, Settings: set, Titles: map[string]string{byFile["Slide deck.pdf"].ID: "My Deck"}})
+	b, _ = json.Marshal(convertRequest{IDs: ids, Settings: &set, Titles: map[string]string{byFile["Slide deck.pdf"].ID: "My Deck"}})
 	if res := req(t, "POST", base+"/api/convert", bytes.NewReader(b), map[string]string{"X-Token": s.token}); res.StatusCode != 202 {
 		t.Fatalf("convert: status %d", res.StatusCode)
 	}
@@ -367,7 +377,7 @@ func TestGUIPasswordAndRange(t *testing.T) {
 
 	// A range beyond the end is refused; a good one is converted.
 	convert := func(r string) int {
-		b, _ := json.Marshal(convertRequest{IDs: []string{id}, Settings: defaultSettings(), Pages: map[string]string{id: r}})
+		b, _ := json.Marshal(convertRequest{IDs: []string{id}, Settings: ptr(defaultSettings()), Pages: map[string]string{id: r}})
 		return req(t, "POST", base+"/api/convert", bytes.NewReader(b), tok).StatusCode
 	}
 	if code := convert("3-9"); code != 400 {
@@ -385,5 +395,65 @@ func TestGUIPasswordAndRange(t *testing.T) {
 	s.mu.Unlock()
 	if bytes.Contains(b, []byte("s3cret")) {
 		t.Error("the password is sent to the page")
+	}
+}
+
+func ptr[T any](v T) *T { return &v }
+
+// Each book keeps its own settings: the ones it was added with, changed
+// on its own, and used when it converts.
+func TestGUIPerBookSettings(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts the PDF engine; skipped with -short")
+	}
+	s, base := startGUI(t, true)
+	ch := events(t, s, base)
+	<-ch
+	tok := map[string]string{"X-Token": s.token}
+
+	urdu := defaultSettings()
+	urdu.Lang, urdu.Direction = "ur", "rtl"
+	pdf := makePDF([]testPage{{W: 400, H: 600}})
+	a := uploadWith(t, s, base, map[string][]byte{"Urdu.pdf": pdf}, &urdu)[0]
+	b := upload(t, s, base, map[string][]byte{"English.pdf": pdf})[0]
+	if a.Settings == nil || a.Settings.Direction != "rtl" || b.Settings == nil || b.Settings.Direction != "ltr" {
+		t.Fatalf("added with %+v and %+v", a.Settings, b.Settings)
+	}
+	waitJobs(t, ch, stateReady, a.ID, b.ID)
+
+	patch := func(id string, body any) int {
+		j, _ := json.Marshal(body)
+		return req(t, "PATCH", base+"/api/jobs/"+id, bytes.NewReader(j), tok).StatusCode
+	}
+	english := defaultSettings()
+	english.Trim = true
+	if code := patch(b.ID, map[string]any{"settings": english}); code != 204 {
+		t.Fatalf("patch settings: %d", code)
+	}
+	bad := defaultSettings()
+	bad.Direction = "sideways"
+	if code := patch(b.ID, map[string]any{"settings": bad}); code != 400 {
+		t.Errorf("invalid settings: %d, want 400", code)
+	}
+	if code := patch(b.ID, map[string]any{"title": "Renamed"}); code != 204 {
+		t.Errorf("rename: %d", code)
+	}
+
+	body, _ := json.Marshal(convertRequest{IDs: []string{a.ID, b.ID}})
+	if res := req(t, "POST", base+"/api/convert", bytes.NewReader(body), tok); res.StatusCode != 202 {
+		t.Fatalf("convert: %d", res.StatusCode)
+	}
+	if code := patch(a.ID, map[string]any{"settings": urdu}); code != 409 && code != 204 {
+		t.Errorf("settings while converting: %d", code)
+	}
+	done := waitJobs(t, ch, stateDone, a.ID, b.ID)
+	for id, want := range map[string]string{a.ID: `page-progression-direction="rtl"`, b.ID: `page-progression-direction="ltr"`} {
+		data, _ := io.ReadAll(req(t, "GET", base+"/api/jobs/"+id+"/epub?t="+s.token, nil, nil).Body)
+		if opf := string(zipFile(t, data, "OEBPS/content.opf")); !strings.Contains(opf, want) {
+			t.Errorf("%s: converted without its own settings, want %s", done[id].File, want)
+		}
+	}
+	if v := done[b.ID]; v.Title != "Renamed" || v.Settings == nil || !v.Settings.Trim {
+		t.Errorf("English book: %+v, settings %+v", v, v.Settings)
 	}
 }

@@ -12,7 +12,7 @@ import (
 
 func TestLayoutPages(t *testing.T) {
 	sizes := []Size{{400, 600}, {800, 600}, {620, 600}}
-	pages := layoutPages([]int{0, 1, 2}, sizes, true, false)
+	pages := layoutPages([]int{0, 1, 2}, sizes, true, false, nil)
 	want := []bookPage{
 		{0, 0, image.Rect(0, 0, 400, 600)},
 		{1, 1, image.Rect(0, 0, 400, 600)}, {1, 2, image.Rect(400, 0, 800, 600)},
@@ -26,11 +26,11 @@ func TestLayoutPages(t *testing.T) {
 			t.Errorf("page %d: %v, want %v", i, pages[i], want[i])
 		}
 	}
-	rtl := layoutPages([]int{1}, []Size{{800, 600}}, true, true)
+	rtl := layoutPages([]int{1}, []Size{{800, 600}}, true, true, nil)
 	if rtl[0].crop.Min.X != 400 || rtl[1].crop.Min.X != 0 {
 		t.Errorf("right to left, the right half comes first: %v", rtl)
 	}
-	if got := layoutPages([]int{1}, []Size{{800, 600}}, false, false); len(got) != 1 {
+	if got := layoutPages([]int{1}, []Size{{800, 600}}, false, false, nil); len(got) != 1 {
 		t.Error("split without being asked")
 	}
 }
@@ -151,5 +151,58 @@ func TestConvertTrimAndSplit(t *testing.T) {
 	}
 	if inkFirst("--split", "--rtl") {
 		t.Error("right to left, the right half should come first")
+	}
+}
+
+// spread draws a two-page spread: text blocks on either side of a gutter
+// at the given fraction, and a dark fold line there when fold is set.
+func spread(gutter float64, fold bool) *image.RGBA {
+	const w, h = 400, 300
+	m := page(w, h, color.RGBA{246, 244, 238, 255}, image.Rectangle{})
+	g := int(gutter * w)
+	ink := color.RGBA{30, 30, 30, 255}
+	for y := 40; y < 260; y += 6 {
+		for x := 30; x < g-25; x++ {
+			m.SetRGBA(x, y, ink)
+			m.SetRGBA(x, y+1, ink)
+		}
+		for x := g + 25; x < w-30; x++ {
+			m.SetRGBA(x, y, ink)
+			m.SetRGBA(x, y+1, ink)
+		}
+	}
+	if fold {
+		for y := range h {
+			for x := g - 2; x <= g+2; x++ {
+				m.SetRGBA(x, y, color.RGBA{90, 88, 84, 255})
+			}
+		}
+	}
+	return m
+}
+
+func TestFindGutter(t *testing.T) {
+	near := func(got, want float64) bool { return math.Abs(got-want) < 0.015 }
+	if g := findGutter(spread(0.46, false)); !near(g, 0.46) {
+		t.Errorf("a blank gutter off centre: found %.3f, want 0.46", g)
+	}
+	if g := findGutter(spread(0.54, true)); !near(g, 0.54) {
+		t.Errorf("a scanned fold: found %.3f, want 0.54", g)
+	}
+	// Text across the middle and no fold: the centre.
+	m := page(400, 300, color.RGBA{250, 250, 250, 255}, image.Rect(30, 40, 370, 260))
+	if g := findGutter(m); g != 0.5 {
+		t.Errorf("no gutter to find: %.3f, want the centre", g)
+	}
+	// A gutter far from the middle is not looked for; the centre is used.
+	if g := findGutter(spread(0.3, false)); g != 0.5 {
+		t.Errorf("a gap outside the middle band: %.3f, want the centre", g)
+	}
+}
+
+func TestLayoutAtGutter(t *testing.T) {
+	pages := layoutPages([]int{0}, []Size{{800, 600}}, true, false, []float64{0.45})
+	if pages[0].crop.Max.X != 360 || pages[1].crop.Min.X != 360 {
+		t.Errorf("split at %v, want 360", pages)
 	}
 }

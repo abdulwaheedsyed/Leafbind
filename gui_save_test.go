@@ -49,7 +49,7 @@ func TestGUISave(t *testing.T) {
 	<-ch
 	id := upload(t, s, base, map[string][]byte{"Saved.pdf": makePDF([]testPage{{W: 400, H: 600}})})[0].ID
 	waitJobs(t, ch, stateReady, id)
-	b, _ := json.Marshal(convertRequest{IDs: []string{id}, Settings: defaultSettings()})
+	b, _ := json.Marshal(convertRequest{IDs: []string{id}, Settings: ptr(defaultSettings())})
 	tok := map[string]string{"X-Token": s.token}
 	req(t, "POST", base+"/api/convert", bytes.NewReader(b), tok)
 	waitJobs(t, ch, stateDone, id)

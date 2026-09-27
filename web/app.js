@@ -108,8 +108,8 @@ $("#settings").addEventListener("input", (e) => {
   }
   if (e.target.name === "direction") dirTouched = true;
   if (e.target === els.quality) els.qualityOut.value = els.quality.value;
-  store.set("settings", readSettings());
   store.set("dirTouched", dirTouched);
+  settingsChanged();
 });
 $("#settings").addEventListener("submit", (e) => e.preventDefault());
 $("#settings").addEventListener("change", (e) => { if (e.target === els.validate) syncEpubcheck(); });
@@ -124,9 +124,80 @@ $("#reset").addEventListener("click", () => {
   if (!state.info) return;
   dirTouched = false;
   applySettings(state.info.defaults);
-  store.set("settings", readSettings());
   store.set("dirTouched", false);
+  settingsChanged();
 });
+
+// ---------- settings per book ----------
+
+// The panel edits one book's settings when a book is selected, and
+// otherwise those of every book not yet converted and of books added next.
+let selected = null;
+let defaults = null; // the panel's settings for all books
+const pending = new Map(); // id -> timer of a settings change not yet sent
+
+const waiting = (j) => j.state === "ready" || j.state === "inspecting" || (j.state === "failed" && !j.pages);
+const busyJob = (j) => j.state === "queued" || j.state === "converting";
+
+function settingsChanged() {
+  const st = readSettings();
+  if (selected) {
+    const j = state.jobs.get(selected);
+    if (j && !busyJob(j)) { j.settings = st; sendSettings(j.id, st); renderJob(j); }
+    return;
+  }
+  defaults = st;
+  store.set("settings", st);
+  for (const j of state.jobs.values()) {
+    if (waiting(j)) { j.settings = st; sendSettings(j.id, st); renderJob(j); }
+  }
+}
+
+// sendSettings stores a book's settings on the server, a moment after the
+// last change, so dragging a slider does not send every step.
+function sendSettings(id, st) {
+  clearTimeout(pending.get(id));
+  if (!st.lang) return; // an unfinished language tag; wait for the rest
+  pending.set(id, setTimeout(async () => {
+    pending.delete(id);
+    try {
+      await api(`/api/jobs/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ settings: st }) });
+    } catch (err) { toast(err.message); }
+  }, 300));
+}
+
+function select(id) {
+  selected = selected === id ? null : id;
+  renderSelection();
+}
+
+function renderSelection() {
+  if (selected && !state.jobs.has(selected)) selected = null;
+  for (const [id, li] of cards) li.classList.toggle("selected", id === selected);
+  const j = selected && state.jobs.get(selected);
+  $("#settings-for").textContent = j ? j.title : "All books";
+  $("#settings-scope").textContent = j
+    ? "Changes apply to this book only."
+    : "Changes apply to new books and to every book not yet converted.";
+  $("#settings-all").hidden = !j;
+  const locked = !!(j && busyJob(j));
+  $("#settings").classList.toggle("locked", locked);
+  for (const el of $("#settings").elements) if (el.id !== "reset") el.disabled = locked;
+  if (!locked) syncEpubcheck();
+  if (j && locked) $("#settings-scope").textContent = "This book is converting; its settings can change when it is done.";
+  if (state.info) applySettings(j ? { ...defaults, ...(j.settings || {}) } : defaults);
+}
+
+// A short account of a book's settings, for its card.
+function settingsSummary(st) {
+  if (!st) return "";
+  const lang = [...els.lang.options].find((o) => o.value === st.lang);
+  const bits = [lang ? lang.textContent : st.lang, st.direction === "rtl" ? "right to left" : "left to right", st.grayscale ? "greyscale" : "colour"];
+  if (st.trim) bits.push("trimmed");
+  if (st.split) bits.push("spreads split");
+  if (st.flattenBG) bits.push("white background");
+  return bits.join(" · ");
+}
 
 // ---------- theme ----------
 
@@ -192,6 +263,7 @@ async function saveBooks(path, what) {
 
 const stageText = {
   measuring: "Reading the PDF",
+  splitting: "Finding the gutters",
   trimming: "Finding the margins",
   rendering: "Rendering pages",
   packaging: "Packaging the EPUB",
@@ -230,6 +302,12 @@ function card(job) {
     try { await api(`/api/jobs/${job.id}`, { method: "DELETE" }); } catch (err) { toast(err.message); }
   });
   $(".again", li).addEventListener("click", () => convert([job.id]));
+  // Selecting a book, by clicking anywhere on its card but its controls,
+  // shows its settings in the panel.
+  li.addEventListener("click", (e) => {
+    if (e.target.closest("button, a, input, select, label, form, details, .cover")) return;
+    select(job.id);
+  });
   const pages = $(".pages", li);
   pages.addEventListener("keydown", (e) => { if (e.key === "Enter") pages.blur(); });
   pages.addEventListener("input", () => { pages.dataset.touched = "1"; });
@@ -256,6 +334,7 @@ function card(job) {
 function renderJob(job) {
   const li = card(job);
   li.className = "job " + job.state;
+  li.classList.toggle("selected", job.id === selected);
   const [label, tone] = job.locked ? ["Locked", "warn"] : badgeFor[job.state] || [job.state, ""];
   const badge = $(".badge", li);
   badge.className = "badge " + tone;
@@ -288,6 +367,7 @@ function renderJob(job) {
     $(".placeholder", cover).setAttribute("hidden", "");
   }
 
+  $(".summary", li).textContent = settingsSummary(job.settings);
   const meta = [job.file];
   const r0 = job.result;
   if (r0 && r0.sources && r0.pages !== r0.sources) meta.push(`${plural(r0.pages, "page")} from ${r0.sources === r0.of ? "" : r0.sources + " of "}${plural(r0.of, "PDF page")}`);
@@ -308,11 +388,12 @@ function renderJob(job) {
   bar.hidden = !busy;
   stage.hidden = !busy;
   if (busy) {
-    // Reading the PDF is the first tenth of the bar, finding the margins
-    // (when trimming) the next, and rendering the rest.
-    const counted = ["measuring", "trimming", "rendering"].includes(job.stage) && job.total > 0;
+    // Reading the PDF is the first tenth of the bar, finding the gutters or
+    // margins (when splitting or trimming) the next, and rendering the rest.
+    const counted = ["measuring", "splitting", "trimming", "rendering"].includes(job.stage) && job.total > 0;
     const part = job.done / job.total;
-    const frac = !counted ? 0 : job.stage === "measuring" ? 0.1 * part : job.stage === "trimming" ? 0.1 + 0.1 * part : 0.2 + 0.8 * part;
+    const frac = !counted ? 0 : job.stage === "measuring" ? 0.1 * part
+      : job.stage === "splitting" || job.stage === "trimming" ? 0.1 + 0.1 * part : 0.2 + 0.8 * part;
     bar.classList.toggle("busy", !counted);
     fill.style.width = counted ? (100 * frac).toFixed(1) + "%" : "";
     stage.textContent = job.state === "queued" ? "Waiting for the book ahead"
@@ -597,12 +678,14 @@ function connect() {
     state.jobs.clear(); state.order = [];
     for (const j of d.jobs) { state.jobs.set(j.id, j); state.order.push(j.id); }
     if (first) {
-      applySettings({ ...d.info.defaults, ...store.get("settings", {}) });
+      defaults = { ...d.info.defaults, ...store.get("settings", {}) };
+      applySettings(defaults);
       dirTouched = store.get("dirTouched", false);
     }
     renderInfo();
     state.jobs.forEach(renderJob);
     renderList();
+    renderSelection();
   });
   es.addEventListener("info", (e) => { state.info = JSON.parse(e.data); renderInfo(); renderList(); });
   es.addEventListener("job", (e) => {
@@ -610,9 +693,13 @@ function connect() {
     if ((state.seq.get(j.id) || 0) > j.seq) return; // stale
     state.seq.set(j.id, j.seq);
     if (!state.jobs.has(j.id)) state.order.push(j.id);
+    // A change of ours still to be sent is newer than what the server has.
+    if (pending.has(j.id) && state.jobs.has(j.id)) j.settings = state.jobs.get(j.id).settings;
+    const wasBusy = state.jobs.has(j.id) && busyJob(state.jobs.get(j.id));
     state.jobs.set(j.id, j);
     renderJob(j);
     renderList();
+    if (j.id === selected && wasBusy !== busyJob(j)) renderSelection();
   });
   es.addEventListener("removed", (e) => {
     const { id } = JSON.parse(e.data);
@@ -620,6 +707,7 @@ function connect() {
     state.jobs.delete(id);
     state.order = state.order.filter((x) => x !== id);
     renderList();
+    if (selected === id) { selected = null; renderSelection(); }
   });
   es.addEventListener("quit", () => { es.close(); $("#stopped").hidden = false; });
   es.onerror = () => {
@@ -637,22 +725,27 @@ async function addFiles(fileList) {
   if (skipped) toast(`${plural(skipped, "file")} skipped: only PDFs can be converted.`);
   if (!files.length) return;
   const fd = new FormData();
+  // New books start with the settings for all books.
+  if (defaults && defaults.lang) fd.append("settings", JSON.stringify(defaults));
   files.forEach((f) => fd.append("file", f, f.name));
   try { await api("/api/files", { method: "POST", body: fd }); } catch (err) { toast(err.message); }
 }
 
 async function convert(ids) {
-  const settings = readSettings();
-  if (!settings.lang) { toast("Enter a language tag, or choose a language."); els.langOther.focus(); return; }
-  const titles = {}, pages = {};
+  if (!readSettings().lang) { toast("Enter a language tag, or choose a language."); els.langOther.focus(); return; }
+  // Each book converts with its own settings, sent with the request so a
+  // change not yet stored is not lost.
+  const titles = {}, pages = {}, books = {};
   for (const id of ids) {
-    const li = cards.get(id);
-    if (!li) continue;
-    titles[id] = $(".title", li).value.trim() || state.jobs.get(id).title;
+    const li = cards.get(id), j = state.jobs.get(id);
+    if (!li || !j) continue;
+    titles[id] = $(".title", li).value.trim() || j.title;
     pages[id] = $(".pages", li).value.trim();
+    if (j.settings && j.settings.lang) books[id] = j.settings;
+    clearTimeout(pending.get(id)); pending.delete(id);
   }
   try {
-    await api("/api/convert", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids, settings, titles, pages }) });
+    await api("/api/convert", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids, books, titles, pages }) });
   } catch (err) { toast(err.message); }
 }
 
@@ -680,7 +773,9 @@ window.addEventListener("drop", (e) => {
 
 window.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "o") { e.preventDefault(); $("#picker").click(); }
+  if (e.key === "Escape" && selected && !document.querySelector("dialog[open]")) { selected = null; renderSelection(); }
 });
+$("#settings-all").addEventListener("click", () => { selected = null; renderSelection(); });
 
 $("#download-all").addEventListener("click", (e) => {
   if (!state.info || !state.info.native) return;

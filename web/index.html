@@ -75,6 +75,13 @@
   </section>
 
   <aside class="panel" aria-label="Settings">
+    <div class="panel-head">
+      <div>
+        <h2 id="settings-for">All books</h2>
+        <p id="settings-scope">Changes apply to new books and to every book not yet converted.</p>
+      </div>
+      <button class="btn ghost small" id="settings-all" type="button" hidden>All books</button>
+    </div>
     <form id="settings" novalidate>
       <fieldset>
         <legend>Language &amp; reading</legend>
@@ -297,6 +304,7 @@
         <span class="badge"></span>
       </div>
       <p class="meta"></p>
+      <p class="summary"></p>
       <label class="range" hidden><span>Pages</span><input class="pages" placeholder="All" spellcheck="false" autocomplete="off" aria-label="Pages to convert, such as 1-20, 25"></label>
       <form class="unlock" hidden>
         <input type="password" class="password" placeholder="Password" autocomplete="off" aria-label="Password for this PDF">
@@ -313,7 +321,7 @@
     <div class="actions">
       <button class="btn small preview-btn" type="button" hidden><svg><use href="#i-book"/></svg>Preview</button>
       <a class="btn primary small download" hidden><svg><use href="#i-download"/></svg>Download</a>
-      <button class="icon-btn again" type="button" title="Convert again with the current settings" hidden><svg><use href="#i-refresh"/></svg></button>
+      <button class="icon-btn again" type="button" title="Convert again" hidden><svg><use href="#i-refresh"/></svg></button>
       <button class="icon-btn remove" type="button" title="Remove"><svg><use href="#i-trash"/></svg></button>
     </div>
   </li>

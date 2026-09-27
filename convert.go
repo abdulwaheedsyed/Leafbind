@@ -22,6 +22,7 @@ import (
 // Stages reported while converting, in order.
 const (
 	stageMeasuring  = "measuring"
+	stageSplitting  = "splitting"
 	stageTrimming   = "trimming"
 	stageRendering  = "rendering"
 	stagePackaging  = "packaging"
@@ -131,8 +132,18 @@ func convertBook(ctx context.Context, eng *engine, o Options, report func(Event)
 		report(Event{Stage: stageMeasuring, Done: k + 1, Total: len(sel)})
 	}
 
-	// The book's pages: spreads split and margins trimmed, when asked.
-	pages := layoutPages(sel, srcSizes, o.Split, o.Direction == "rtl")
+	// The book's pages: spreads split at their gutters and margins
+	// trimmed, when asked.
+	var gutters []float64
+	if o.Split {
+		report(Event{Stage: stageSplitting})
+		if gutters, err = findGutters(ctx, eng, pdf, first, srcSizes, sel, o, func(done int) {
+			report(Event{Stage: stageSplitting, Done: done, Total: len(sel)})
+		}); err != nil {
+			return nil, err
+		}
+	}
+	pages := layoutPages(sel, srcSizes, o.Split, o.Direction == "rtl", gutters)
 	n := len(pages)
 	plan.Pages = n
 	if o.Trim {
@@ -288,8 +299,30 @@ func eachSource(ctx context.Context, eng *engine, pdf []byte, first *worker, src
 	return context.Cause(ctx)
 }
 
-// analysisDPI is enough to find margins, and quick to render.
+// analysisDPI is enough to find margins and gutters, and quick to render.
 const analysisDPI = 48
+
+// findGutters finds where each spread folds, from a low-resolution
+// rendering; pages that are not spreads are left at 0.
+func findGutters(ctx context.Context, eng *engine, pdf []byte, first *worker, srcSizes []Size, sel []int, o Options, tick func(done int)) ([]float64, error) {
+	gutters := make([]float64, len(sel))
+	var done atomic.Int64
+	var tickMu sync.Mutex
+	err := eachSource(ctx, eng, pdf, first, len(sel), o, func(w *worker, k int) error {
+		if isSpread(srcSizes[k]) {
+			img, err := w.render(sel[k], min(analysisDPI, o.DPI))
+			if err != nil {
+				return err
+			}
+			gutters[k] = findGutter(img)
+		}
+		tickMu.Lock()
+		tick(int(done.Add(1)))
+		tickMu.Unlock()
+		return nil
+	})
+	return gutters, err
+}
 
 // partsOf lists the book pages cut from each selected PDF page.
 func partsOf(pages []bookPage, sel []int) [][]int {

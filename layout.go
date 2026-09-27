@@ -25,8 +25,9 @@ func isSpread(s Size) bool { return s.W*10 > s.H*11 }
 
 // layoutPages lists the book's pages for the selected PDF pages, which
 // render at sizes. With split, each spread becomes its two halves, the
-// right-hand one first in a right-to-left book.
-func layoutPages(sel []int, sizes []Size, split, rtl bool) []bookPage {
+// right-hand one first in a right-to-left book, divided at gutters[k], a
+// fraction of the width; nil gutters divide at the centre.
+func layoutPages(sel []int, sizes []Size, split, rtl bool, gutters []float64) []bookPage {
 	var pages []bookPage
 	for k, src := range sel {
 		s := sizes[k]
@@ -35,13 +36,112 @@ func layoutPages(sel []int, sizes []Size, split, rtl bool) []bookPage {
 			pages = append(pages, bookPage{src: src, crop: whole})
 			continue
 		}
-		left, right := image.Rect(0, 0, s.W/2, s.H), image.Rect(s.W/2, 0, s.W, s.H)
+		at := s.W / 2
+		if gutters != nil && gutters[k] > 0 {
+			at = int(math.Round(gutters[k] * float64(s.W)))
+		}
+		left, right := image.Rect(0, 0, at, s.H), image.Rect(at, 0, s.W, s.H)
 		if rtl {
 			left, right = right, left
 		}
 		pages = append(pages, bookPage{src, 1, left}, bookPage{src, 2, right})
 	}
 	return pages
+}
+
+// ----- gutters -----
+
+// The gutter is looked for in the middle of a spread only: a book's fold is
+// never far from it, and text columns elsewhere must not be mistaken for it.
+const gutterBand = 0.10 // each side of the centre, as a fraction of the width
+
+// findGutter locates where a spread folds, as a fraction of its width. A
+// scan shows the fold as a narrow dark line down the page; a spread made
+// digitally shows it as a blank gap between the pages. Failing both, the
+// centre is as good a guess as any.
+func findGutter(img *image.RGBA) float64 {
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	if w < 20 || h < 20 {
+		return 0.5
+	}
+	bg := backgroundLuma(img, b)
+	lo, hi := int(float64(w)*(0.5-gutterBand)), int(math.Ceil(float64(w)*(0.5+gutterBand)))
+	ink := make([]float64, hi-lo) // share of each column that is not background
+	for x := lo; x < hi; x++ {
+		n := 0
+		for y := b.Min.Y; y < b.Max.Y; y++ {
+			l := int(lumaOf(at(img, b.Min.X+x, y)))
+			if l-bg > contentThreshold || bg-l > contentThreshold {
+				n++
+			}
+		}
+		ink[x-lo] = float64(n) / float64(h)
+	}
+	centre := func(a, z int) float64 { return (float64(lo+a) + float64(z-a)/2) / float64(w) }
+
+	// A fold: a run of columns dark nearly all the way down, and narrow.
+	maxFold := max(1, w*3/100)
+	best, bestDist := -1.0, math.Inf(1)
+	for a := 0; a < len(ink); {
+		if ink[a] < 0.6 {
+			a++
+			continue
+		}
+		z := a
+		for z < len(ink) && ink[z] >= 0.6 {
+			z++
+		}
+		if z-a <= maxFold {
+			if c := centre(a, z); math.Abs(c-0.5) < bestDist {
+				best, bestDist = c, math.Abs(c-0.5)
+			}
+		}
+		a = z
+	}
+	if best > 0 {
+		return best
+	}
+
+	// A gap: the widest run of blank columns, the nearer the centre the
+	// better when two are as wide.
+	bestLen := 0
+	for a := 0; a < len(ink); {
+		if ink[a] > 0.01 {
+			a++
+			continue
+		}
+		z := a
+		for z < len(ink) && ink[z] <= 0.01 {
+			z++
+		}
+		c := centre(a, z)
+		if z-a > bestLen || z-a == bestLen && math.Abs(c-0.5) < bestDist {
+			best, bestLen, bestDist = c, z-a, math.Abs(c-0.5)
+		}
+		a = z
+	}
+	if best > 0 && bestLen >= max(2, w/100) {
+		return best
+	}
+	return 0.5
+}
+
+// backgroundLuma is the most common luma in r.
+func backgroundLuma(img *image.RGBA, r image.Rectangle) int {
+	var hist [256]int
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		for x := r.Min.X; x < r.Max.X; x++ {
+			hist[lumaOf(at(img, x, y))]++
+		}
+	}
+	bg := 0
+	for v := range hist {
+		if hist[v] > hist[bg] {
+			bg = v
+		}
+	}
+	return bg
 }
 
 // ----- margins -----
@@ -76,19 +176,7 @@ func findContent(img *image.RGBA, r image.Rectangle) content {
 	if w < 4 || h < 4 {
 		return content{blank: true, bg: 255}
 	}
-	var hist [256]int
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		for x := r.Min.X; x < r.Max.X; x++ {
-			c := at(img, x, y)
-			hist[lumaOf(c)]++
-		}
-	}
-	bg := 0
-	for v := range hist {
-		if hist[v] > hist[bg] {
-			bg = v
-		}
-	}
+	bg := backgroundLuma(img, r)
 	ink := make([]bool, w*h)
 	for y := range h {
 		for x := range w {
