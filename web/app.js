@@ -48,7 +48,7 @@ const els = {
   lang: $("#lang"), langOther: $("#lang-other"), langOtherRow: $("#lang-other-row"),
   flatten: $("#flatten"), orientation: $("#orientation"), dpi: $("#dpi"),
   quality: $("#quality"), qualityOut: $("#quality-out"), maxEdge: $("#maxEdge"),
-  mixed: $("#mixed"), validate: $("#validate"), toc: $("#toc"),
+  mixed: $("#mixed"), validate: $("#validate"), toc: $("#toc"), epubcheck: $("#epubcheck"),
 };
 let dirTouched = false;
 
@@ -70,6 +70,7 @@ function readSettings() {
     mixed: els.mixed.checked,
     toc: els.toc.value,
     validate: els.validate.checked,
+    epubcheck: els.epubcheck.checked,
   };
 }
 
@@ -88,6 +89,8 @@ function applySettings(s) {
   els.mixed.checked = s.mixed;
   els.toc.value = s.toc === "pages" ? "pages" : "bookmarks";
   els.validate.checked = s.validate;
+  els.epubcheck.checked = !!s.epubcheck;
+  syncEpubcheck();
 }
 
 $("#settings").addEventListener("input", (e) => {
@@ -105,6 +108,14 @@ $("#settings").addEventListener("input", (e) => {
   store.set("dirTouched", dirTouched);
 });
 $("#settings").addEventListener("submit", (e) => e.preventDefault());
+$("#settings").addEventListener("change", (e) => { if (e.target === els.validate) syncEpubcheck(); });
+
+// epubcheck runs only as part of validation, and only when it is installed.
+function syncEpubcheck() {
+  const installed = !!(state.info && state.info.epubcheck);
+  els.epubcheck.disabled = !installed || !els.validate.checked;
+  els.epubcheck.closest(".switch").classList.toggle("disabled", els.epubcheck.disabled);
+}
 $("#reset").addEventListener("click", () => {
   if (!state.info) return;
   dirTouched = false;
@@ -348,8 +359,9 @@ function renderInfo() {
   $("#about-version").textContent = "Version " + i.version;
   $("#licenses").href = withToken("/api/licenses");
   $("#epubcheck-note").textContent = i.epubcheck
-    ? "Checks the finished EPUB, and runs epubcheck too."
-    : "Checks the finished EPUB. Install epubcheck for a second opinion.";
+    ? "A second opinion from the W3C's validator. Takes a few seconds a book."
+    : "Install epubcheck to use it; the built-in validator already covers what it checks.";
+  syncEpubcheck();
 }
 
 // ---------- page preview ----------

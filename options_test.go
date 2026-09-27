@@ -43,7 +43,7 @@ func TestParseArgsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if o.DPI != dpiAuto || o.MaxEdge != 2560 || o.Quality != 92 || o.Direction != "ltr" || o.Lang != "en" || o.TOC != tocBookmarks || !o.Validate || !o.Epubcheck {
+	if o.DPI != dpiAuto || o.MaxEdge != 2560 || o.Quality != 92 || o.Direction != "ltr" || o.Lang != "en" || o.TOC != tocBookmarks || !o.Validate || o.Epubcheck {
 		t.Errorf("unexpected defaults: %+v", o)
 	}
 }

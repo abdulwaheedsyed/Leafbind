@@ -84,13 +84,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if o.Password == "" {
 		o.Password = os.Getenv("LEAFBIND_PASSWORD")
 	}
-	ok, err := convert(ctx, o, stdout)
-	switch {
-	case errors.Is(err, errPasswordNeeded):
-		fmt.Fprintf(stderr, "error: %v; give its password with --password, or in LEAFBIND_PASSWORD\n", err)
-		return 1
-	case err != nil:
-		fmt.Fprintf(stderr, "error: %v\n", err)
+	var ok bool
+	if o.OutDir != "" {
+		ok, err = convertBatch(ctx, o, stdout)
+	} else {
+		ok, err = convert(ctx, o, stdout)
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", describeError(err))
 		return 1
 	}
 	if !ok {
@@ -125,15 +126,19 @@ func guiRequested(args []string) (guiOptions, bool) {
 // convert runs one conversion for the command line and prints its progress.
 // It returns false when the EPUB was written but failed validation.
 func convert(ctx context.Context, o Options, out io.Writer) (bool, error) {
-	say := func(format string, args ...any) { fmt.Fprintf(out, format, args...) }
-	say("Input       : %s\n", o.Input)
-	say("Starting PDF engine...\n")
-
+	fmt.Fprintf(out, "Input       : %s\n", o.Input)
+	fmt.Fprintf(out, "Starting PDF engine...\n")
 	eng, err := newEngine(ctx, o.Jobs)
 	if err != nil {
 		return false, err
 	}
 	defer eng.Close()
+	return convertWith(ctx, eng, o, out)
+}
+
+// convertWith converts one book with a running engine and reports on it.
+func convertWith(ctx context.Context, eng *engine, o Options, out io.Writer) (bool, error) {
+	say := func(format string, args ...any) { fmt.Fprintf(out, format, args...) }
 
 	progress := isTerminal(out)
 	rendering := false

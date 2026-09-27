@@ -52,8 +52,9 @@ Previewer, or Send to Kindle, can then take the rest of the way.
   let the Kindle go to a page by its printed number.
 - **Page preview.** Flip through the finished book on a Kindle-sized screen
   before sending it, to check every page fits the way you expect.
-- **Validates its own output**, and runs [epubcheck](https://github.com/w3c/epubcheck)
-  as well when it is installed.
+- **Validates its own output** with a built-in equivalent of
+  [epubcheck](https://github.com/w3c/epubcheck), and can run epubcheck itself
+  as a second opinion.
 - **Compact.** A built-in JPEG encoder builds Huffman tables for each page
   from its own statistics — lossless, and typically 5–10% smaller than
   Go's standard encoder.
@@ -165,6 +166,7 @@ temporary folder that is deleted when the program exits.
 
 ```bash
 leafbind [options] input.pdf output.epub
+leafbind [options] --out folder/ input.pdf... folder-of-pdfs/...
 ```
 
 Options may appear anywhere on the command line, as `--name value`,
@@ -178,6 +180,7 @@ Options may appear anywhere on the command line, as `--name value`,
 | `--grayscale` | off | 8-bit greyscale for e-ink. Aliases: `--greyscale`, `--mono`. |
 | `--flatten-bg` | off | Force a flat, tinted page background to white. Aliases: `--white-bg`, `--flatten-background`. |
 | `--title TEXT` | file name | Book title. |
+| `-o`, `--out DIR` | | Convert several PDFs: each PDF given, and every PDF directly inside each folder given, becomes `DIR/<name>.epub`, titled after its file. One book failing does not stop the rest. |
 | `--lang CODE` | `en` | BCP 47 language tag, such as `en`, `ar`, `ur` or `ur-Latn`. |
 | `--rtl` | LTR | Right-to-left page progression, for Arabic, Urdu, Hebrew and similar. `--ltr` selects the default explicitly. |
 | `--orientation X` | detected | Force `portrait`, `landscape`, `auto` or `none`. |
@@ -187,7 +190,7 @@ Options may appear anywhere on the command line, as `--name value`,
 | `--toc X` | `bookmarks` | Table of contents: `bookmarks`, from the PDF's outline when it has one, otherwise one entry per page; or `pages`, always one entry per page. |
 | `--jobs N` | CPUs, max 6 | Pages rendered in parallel. |
 | `--no-validate` | off | Skip all validation. |
-| `--no-epubcheck` | off | Skip the external epubcheck even when it is installed. |
+| `--epubcheck` | off | Also run an installed [epubcheck](https://github.com/w3c/epubcheck), as a second opinion. |
 | `--check` | | Validate the EPUBs given instead of converting; see [Validation](#validation). |
 | `-v`, `--verbose` | off | Print one line per page. |
 | `--gui` | | Open the graphical interface; the same as giving no arguments. |
@@ -210,6 +213,12 @@ A right-to-left book, such as Arabic or Urdu:
 
 ```bash
 leafbind --grayscale --rtl --lang ar --title "Book Title" book.pdf book.epub
+```
+
+Every PDF in a folder, and two more, into `books/`:
+
+```bash
+leafbind --grayscale --out books/ scans/ extra-1.pdf extra-2.pdf
 ```
 
 Part of a PDF, skipping the front matter and the index:
@@ -378,7 +387,9 @@ list. The rest compare the book with the PDF it came from: one page per PDF
 page, and every page image matching its viewport, the canvas and, with
 `--grayscale`, greyscale.
 
-When `epubcheck` itself is on `PATH` it runs as well, as a second opinion.
+`--epubcheck`, or "Also run epubcheck" in the interface, runs an installed
+`epubcheck` as well, as a second opinion. It is off by default: the built-in
+checks agree with it on every test, and it costs a Java start-up per book.
 
 A book with errors is still written, so it can be inspected, but the program
 exits with status `1`. Warnings are reported without failing the book, as

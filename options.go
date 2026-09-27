@@ -32,6 +32,9 @@ type Options struct {
 	TOC       string // tocBookmarks or tocPages
 	Pages     string // page range; "" converts every page
 	Password  string // for an encrypted PDF
+
+	OutDir    string   // --out: convert every input into this folder
+	Inputs    []string // with --out: PDFs and folders of PDFs
 	Validate  bool
 	Epubcheck bool
 	Jobs      int
@@ -49,7 +52,6 @@ func defaultOptions() Options {
 		Direction: "ltr",
 		TOC:       tocBookmarks,
 		Validate:  true,
-		Epubcheck: true,
 		Jobs:      min(runtime.NumCPU(), 6),
 	}
 }
@@ -71,6 +73,7 @@ const usageText = `Convert a PDF into a Kindle-compatible fixed-layout EPUB 3.
 
 Usage:
   leafbind [options] input.pdf output.epub   convert from the command line
+  leafbind [options] --out DIR PDF|DIR...    convert several PDFs into DIR
   leafbind                                   open the graphical interface
   leafbind --check book.epub...              validate EPUBs
 
@@ -86,6 +89,8 @@ Options:
   --grayscale        8-bit greyscale for e-ink       (also --greyscale, --mono)
   --flatten-bg       Tinted page background -> white (also --white-bg)
   --title TEXT       Book title                      (default: PDF file name)
+  -o, --out DIR      Convert each PDF given, and each PDF in the folders
+                     given, into DIR, named after its file
   --lang CODE        BCP 47 language code            (default en)
   --rtl              Right-to-left reading order     (default is LTR; --ltr)
   --orientation X    Force portrait, landscape, auto or none
@@ -96,7 +101,7 @@ Options:
   --password TEXT    Open an encrypted PDF; LEAFBIND_PASSWORD also works
   --jobs N           Pages rendered in parallel      (default: CPUs, max 6)
   --no-validate      Skip all validation
-  --no-epubcheck     Skip the external epubcheck even when it is installed
+  --epubcheck        Also run an installed epubcheck, as a second opinion
   --check            Validate the EPUBs given, with the built-in checks
   -v, --verbose      Print one line per page
   -h, --help         Show this help
@@ -156,6 +161,7 @@ func parseArgs(args []string) (Options, error) {
 		"rtl":                boolFlag(func() { o.Direction = "rtl" }),
 		"mixed":              boolFlag(func() { o.Mixed = true }),
 		"no-validate":        boolFlag(func() { o.Validate = false }),
+		"epubcheck":          boolFlag(func() { o.Epubcheck = true }),
 		"no-epubcheck":       boolFlag(func() { o.Epubcheck = false }),
 		"verbose":            boolFlag(func() { o.Verbose = true }),
 		"check":              boolFlag(func() { o.Check = []string{} }),
@@ -183,6 +189,8 @@ func parseArgs(args []string) (Options, error) {
 			return nil
 		}},
 		"password": {true, func(v string) error { o.Password = v; return nil }},
+		"out":      {true, func(v string) error { o.OutDir = v; return nil }},
+		"o":        {true, func(v string) error { o.OutDir = v; return nil }},
 		"orientation": {true, func(v string) error {
 			switch v {
 			case "portrait", "landscape", "auto", "none":
@@ -242,10 +250,23 @@ func parseArgs(args []string) (Options, error) {
 		o.Check = pos
 		return o, nil
 	}
+	if o.OutDir != "" {
+		switch {
+		case len(pos) == 0:
+			return o, errors.New("--out needs at least one PDF, or a folder of PDFs")
+		case o.Title != "":
+			return o, errors.New("--title names one book; with --out each book is named after its PDF")
+		}
+		o.Inputs = pos
+		return o, nil
+	}
 	if len(pos) != 2 {
-		return o, fmt.Errorf("expected an input PDF and an output EPUB, got %d argument(s)", len(pos))
+		return o, fmt.Errorf("expected an input PDF and an output EPUB, got %d argument(s); to convert several PDFs, name an output folder with --out", len(pos))
 	}
 	o.Input, o.Output = pos[0], pos[1]
+	if strings.EqualFold(filepath.Ext(o.Output), ".pdf") {
+		return o, fmt.Errorf("the output %s is a PDF; to convert several PDFs, name an output folder with --out", o.Output)
+	}
 
 	if in, err := filepath.Abs(o.Input); err == nil {
 		if out, err := filepath.Abs(o.Output); err == nil && in == out {

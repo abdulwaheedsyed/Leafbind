@@ -189,7 +189,12 @@
         <label class="switch">
           <input type="checkbox" id="validate">
           <span class="track"></span>
-          <span class="text">Validate each book<small id="epubcheck-note">Checks the finished EPUB.</small></span>
+          <span class="text">Validate each book<small>Checks the finished EPUB with the built-in validator.</small></span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="epubcheck">
+          <span class="track"></span>
+          <span class="text">Also run epubcheck<small id="epubcheck-note">A second opinion from the W3C's validator.</small></span>
         </label>
         <button class="btn ghost small" id="reset" type="button">Restore defaults</button>
       </details>

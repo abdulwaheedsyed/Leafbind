@@ -34,8 +34,8 @@ complete workflow still reaches outside the binary.
     fonts, and font obfuscation (`encryption.xml`).
   - [ ] Remote resources and the `remote-resources` property, media overlays,
     `epub:type` vocabularies, SVG content documents, and EPUB 2 packages.
-  - [ ] Once these are covered, stop running an installed epubcheck by
-    default.
+  - [x] Stop running an installed epubcheck by default; `--epubcheck` asks
+    for it.
 - [ ] **A native window for the GUI, instead of the browser.** The interface
   opens in an installed Chrome, Edge or Chromium as an app window, or in the
   default browser. A native window needs the system web view — WebView2 on

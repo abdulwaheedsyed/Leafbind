@@ -63,6 +63,7 @@ type jobSettings struct {
 	Mixed       bool   `json:"mixed"`
 	TOC         string `json:"toc"` // "" = bookmarks
 	Validate    bool   `json:"validate"`
+	Epubcheck   bool   `json:"epubcheck"` // also run an installed epubcheck
 }
 
 func defaultSettings() jobSettings {
@@ -106,7 +107,7 @@ func (s jobSettings) options(title, in, out string, jobs int) (Options, error) {
 	}
 	o.Lang, o.Direction, o.Grayscale, o.FlattenBG = s.Lang, s.Direction, s.Grayscale, s.FlattenBG
 	o.DPI, o.Quality, o.MaxEdge, o.Orient, o.Mixed = s.DPI, s.Quality, s.MaxEdge, s.Orientation, s.Mixed
-	o.TOC, o.Validate, o.Epubcheck = s.TOC, s.Validate, s.Validate
+	o.TOC, o.Validate, o.Epubcheck = s.TOC, s.Validate, s.Validate && s.Epubcheck
 	return o, nil
 }
 
