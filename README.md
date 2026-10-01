@@ -26,6 +26,10 @@ text is not an option.
 It is a single static executable with no runtime dependencies: no poppler, no
 ImageMagick, no zip tool, no Java.
 
+<p align="center">
+  <img src="docs/demo.gif" width="960" alt="A short demo: a novel and a slide deck are added, the novel limited to pages 1 to 60; both are converted and validated; then the novel opens in the preview on a Kindle-sized screen, jumps to Chapter II from its contents, and turns two pages.">
+</p>
+
 ## Why this tool exists
 
 Amazon's Kindle Previewer converts an EPUB into a Kindle book, but it does not

@@ -4,7 +4,7 @@ All notable changes to Leafbind. Versions follow
 [semantic versioning](https://semver.org/); until 1.0, a minor version may
 change behaviour.
 
-## Unreleased
+## v0.9.1
 
 - Release archives carry signed build provenance attestations, which
   `gh attestation verify` checks; the release notes come from this
@@ -12,6 +12,7 @@ change behaviour.
 - The Windows version details no longer wrap round a version part above
   65535, and the schema reader refuses `\x{...}` escapes beyond the last
   Unicode code point.
+- The README opens with a short demo of the interface.
 
 ## v0.9.0
 
