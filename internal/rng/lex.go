@@ -57,7 +57,7 @@ func newLexer(file, src string) (*lexer, error) {
 				end := strings.IndexByte(src[j:], '}')
 				if end > 0 {
 					n, err := strconv.ParseUint(src[j+1:j+end], 16, 32)
-					if err != nil {
+					if err != nil || n > unicode.MaxRune {
 						return nil, fmt.Errorf("%s: bad \\x escape", file)
 					}
 					// A raw line break may not appear in a literal, but an

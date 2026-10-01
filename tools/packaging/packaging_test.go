@@ -97,6 +97,7 @@ func TestCOFFResources(t *testing.T) {
 func TestVersions(t *testing.T) {
 	for in, want := range map[string][4]uint16{
 		"v1.2.3": {1, 2, 3, 0}, "0.5.0": {0, 5, 0, 0}, "v1.2.3-4-gabcdef": {1, 2, 3, 0}, "dev": {}, "abc123": {},
+		"v70000.1.2": {0, 1, 2, 0}, // too large for Windows: not wrapped round
 	} {
 		if got := versionNumbers(in); got != want {
 			t.Errorf("versionNumbers(%q) = %v, want %v", in, got, want)

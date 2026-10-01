@@ -36,7 +36,9 @@ the approach before you spend time on it.
    If you change dependencies, run `make notices` to regenerate
    `THIRD_PARTY_NOTICES.md`; the tests fail until you do.
 5. Sign off every commit (see below), push your branch and open a pull
-   request that explains what the change does and why.
+   request that explains what the change does and why. It can be merged
+   once every CI check passes: the tests on each platform, the native
+   window, the comparison with EPUBCheck, and the sign-off check.
 
 New source files start with the same two-line header as the others:
 
@@ -72,6 +74,12 @@ A check on every pull request makes sure each commit is signed off.
   `third_party/licenses/README.md`.
 - Actions are pinned to commit hashes, with the version in a comment, and
   Dependabot keeps both up to date.
+- `main` cannot be deleted or force-pushed, by anyone. Other changes reach
+  it through pull requests that pass CI; repository admins may push
+  directly. Release tags cannot be moved or deleted except by an admin.
+- CodeQL scans the Go code, the page's JavaScript and the workflows on every
+  push; secret scanning blocks pushes that contain credentials. Findings are
+  under the repository's Security tab.
 - Releases are built, signed and published by the release workflow when a
   `v*` tag is pushed. Each archive gets a build provenance attestation,
   which anyone can check with

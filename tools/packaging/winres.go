@@ -89,13 +89,14 @@ func icoFile(pngs map[int][]byte) []byte {
 }
 
 // versionNumbers reads "v1.2.3" and "v1.2.3-4-gabcdef" as 1.2.3.0; anything
-// else is 0.0.0.0.
+// else is 0.0.0.0. A part too large for the 16 bits Windows gives it is 0.
 func versionNumbers(v string) [4]uint16 {
 	m := regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)`).FindStringSubmatch(v)
 	var n [4]uint16
 	for i := 1; i < len(m); i++ {
-		x, _ := strconv.Atoi(m[i])
-		n[i-1] = uint16(x)
+		if x, err := strconv.ParseUint(m[i], 10, 16); err == nil {
+			n[i-1] = uint16(x)
+		}
 	}
 	return n
 }
