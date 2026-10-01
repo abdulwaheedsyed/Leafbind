@@ -19,6 +19,12 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+      # The release notes come from the changelog, so it must say what this
+      # release is before anything is built.
+      - name: CHANGELOG.md has a section for this release
+        env:
+          TAG: ${{ github.ref_name }}
+        run: grep -qx "## $TAG" CHANGELOG.md || { echo "::error::CHANGELOG.md has no '## $TAG' section"; exit 1; }
       - run: go test ./...
       - run: make package VERSION=${{ github.ref_name }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -84,6 +90,26 @@ jobs:
           subject-path: |
             dist/*.tar.gz
             dist/*.zip
+      - name: Release notes
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          awk -v tag="## $TAG" '$0 == tag { on = 1; next } on && /^## / { exit } on' CHANGELOG.md > notes.md
+          # Links between the repository's files point at them as of this tag.
+          sed -i -E "s#\]\(([^):#]+)\)#](https://github.com/${GITHUB_REPOSITORY}/blob/${TAG}/\1)#g" notes.md
+          cat >> notes.md <<EOF
+
+          ### Install
+
+          Download the archive for your platform below and check it against \`SHA256SUMS\`.
+          On Windows, unzip it and run \`leafbind.exe\`; on macOS, open \`Leafbind.app\`; on
+          Linux, put \`leafbind\` on your \`PATH\`. The [README](https://github.com/${GITHUB_REPOSITORY}#install)
+          has the details.
+
+          Each archive carries a signed build provenance attestation; check one with
+          \`gh attestation verify <archive> --repo ${GITHUB_REPOSITORY}\`.
+          EOF
+          cat notes.md
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -92,5 +118,5 @@ jobs:
           gh release create "$TAG" \
             dist/*.tar.gz dist/*.zip dist/SHA256SUMS \
             --title "$TAG" \
-            --generate-notes \
+            --notes-file notes.md \
             --verify-tag

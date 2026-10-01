@@ -4,6 +4,15 @@ All notable changes to Leafbind. Versions follow
 [semantic versioning](https://semver.org/); until 1.0, a minor version may
 change behaviour.
 
+## Unreleased
+
+- Release archives carry signed build provenance attestations, which
+  `gh attestation verify` checks; the release notes come from this
+  changelog.
+- The Windows version details no longer wrap round a version part above
+  65535, and the schema reader refuses `\x{...}` escapes beyond the last
+  Unicode code point.
+
 ## v0.9.0
 
 - **License changed to the Apache License 2.0.** Leafbind was published

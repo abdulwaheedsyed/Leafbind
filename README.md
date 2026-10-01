@@ -6,6 +6,12 @@
 
 <p align="center">PDF to Kindle fixed-layout EPUB, with every page kept exactly.</p>
 
+<p align="center">
+  <a href="https://github.com/abdulwaheedsyed/leafbind/actions/workflows/ci.yml"><img src="https://github.com/abdulwaheedsyed/leafbind/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/abdulwaheedsyed/leafbind/releases/latest"><img src="https://img.shields.io/github/v/release/abdulwaheedsyed/leafbind?sort=semver" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache 2.0"></a>
+</p>
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/leafbind-dark.png">
   <img src="docs/screenshots/leafbind-light.png" alt="Leafbind's window, with three books: a slide deck and a scanned book converted and validated, and a novel part-way through converting.">
