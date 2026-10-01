@@ -123,7 +123,9 @@ jobs:
           chmod +x "$RUNNER_TEMP/bin/epubcheck"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - run: epubcheck --version
-      - run: go test -run TestEpubcheckGolden -v ./internal/check
+      # Each of the corpus's books is a Java start-up; past go test's
+      # default ten minutes, the run would be cut short.
+      - run: go test -run TestEpubcheckGolden -v -timeout 30m ./internal/check
         env:
           EPUBCHECK_VERIFY: "1"
 
