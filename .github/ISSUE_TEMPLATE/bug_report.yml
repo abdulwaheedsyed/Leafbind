@@ -1,0 +1,41 @@
+name: Bug report
+description: Something does not work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting this. Please do not report security problems here; see SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Leafbind version
+      description: The output of `leafbind --version`, or the version in the About box.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows, macOS, Linux, Other]
+    validations:
+      required: true
+  - type: dropdown
+    id: interface
+    attributes:
+      label: Interface
+      options: [Graphical interface, Command line, Both]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what happened, and what you expected. Include the full command and its output for the command line.
+    validations:
+      required: true
+  - type: textarea
+    id: pdf
+    attributes:
+      label: The PDF
+      description: What kind of PDF it is (a scan, a slide deck, a typeset book), how many pages, and anything unusual about it. Attach it only if you are free to share it publicly.

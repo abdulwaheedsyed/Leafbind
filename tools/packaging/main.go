@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 // Command packaging writes what each platform needs beyond the executable,
 // all drawn from the icon in web/icon.svg:
 //
@@ -100,7 +103,7 @@ func versionStrings(version string) [][2]string {
 		{"FileDescription", "Leafbind: PDF to Kindle fixed-layout EPUB"},
 		{"FileVersion", version},
 		{"InternalName", "leafbind"},
-		{"LegalCopyright", "Copyright © 2026 Syed Abdul Waheed. MIT License."},
+		{"LegalCopyright", "Copyright © 2026 Syed Abdul Waheed. Apache License 2.0."},
 		{"OriginalFilename", "leafbind.exe"},
 		{"ProductName", "Leafbind"},
 		{"ProductVersion", version},

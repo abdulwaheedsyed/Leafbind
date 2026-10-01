@@ -37,7 +37,7 @@ dist: winres
 		GOOS=$$os GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" -o $$out . || exit 1; \
 	done
 	@rm -f rsrc_windows_*.syso
-	@cp LICENSE THIRD_PARTY_NOTICES.md dist/
+	@cp LICENSE NOTICE THIRD_PARTY_NOTICES.md dist/
 
 # A macOS application bundle for this Mac, to try it out: dist/Leafbind.app.
 app:
@@ -48,8 +48,8 @@ app:
 	@rm dist/leafbind-app
 
 # Release archives: tar.gz for Linux and macOS, which keeps the executable
-# bit, zip for Windows. Each holds the binary, LICENSE, the third-party
-# notices and the README. On macOS the binary is inside Leafbind.app, with
+# bit, zip for Windows. Each holds the binary, LICENSE, NOTICE, the
+# third-party notices and the README. On macOS the binary is inside Leafbind.app, with
 # leafbind beside it as a link for the command line; on Linux a desktop
 # entry and icons come with it. Uses sha256sum, so run it on Linux (as CI
 # does). The macOS bundles are signed afterwards, on a Mac.
@@ -67,7 +67,7 @@ package: dist
 			cp dist/$$name$$ext $$dir/$(BINARY)$$ext; \
 		fi; \
 		if [ $$os = linux ]; then go run ./tools/packaging linux -o $$dir || exit 1; fi; \
-		cp LICENSE THIRD_PARTY_NOTICES.md README.md $$dir/; \
+		cp LICENSE NOTICE THIRD_PARTY_NOTICES.md README.md $$dir/; \
 		if [ $$os = windows ]; then \
 			(cd dist/pkg && zip -qr ../$$name.zip $$name); \
 		else \

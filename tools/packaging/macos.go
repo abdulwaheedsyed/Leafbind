@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 // The macOS application bundle: Leafbind.app, which opens the graphical
@@ -134,7 +137,7 @@ func infoPlist(version string) []byte {
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2026 Syed Abdul Waheed. MIT License.</string>
+	<string>Copyright © 2026 Syed Abdul Waheed. Apache License 2.0.</string>
 </dict>
 </plist>
 `, v)

@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 // Windows resources: the program's icon and version information, written

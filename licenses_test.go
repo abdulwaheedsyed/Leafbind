@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 import (
@@ -53,8 +56,8 @@ func TestNoticesIncludeRequiredCredits(t *testing.T) {
 			t.Errorf("THIRD_PARTY_NOTICES.md is missing %q", want)
 		}
 	}
-	if !strings.HasPrefix(licenseText, "MIT License") {
-		t.Error("LICENSE is not the MIT license")
+	if !strings.Contains(licenseText, "Apache License") || !strings.Contains(licenseText, "Version 2.0, January 2004") {
+		t.Error("LICENSE is not the Apache License 2.0")
 	}
 }
 

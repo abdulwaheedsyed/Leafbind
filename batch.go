@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 // Converting several PDFs in one run: leafbind --out books/ a.pdf b.pdf

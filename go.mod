@@ -17,3 +17,7 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )
+
+// Versions before v0.9.0 were published under the MIT License and have
+// been withdrawn.
+retract [v0.1.0, v0.8.0]

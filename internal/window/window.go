@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 // Package window shows the interface in a native window, with the web view
 // the operating system provides: WebView2 on Windows and WKWebView on macOS.
 // Elsewhere, and where the web view cannot start, Run reports it and the

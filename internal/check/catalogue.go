@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 // Code generated from epubcheck v5.4.0 (MessageId.java, DefaultSeverities.java
 // and MessageBundle.properties); DO NOT EDIT. epubcheck is distributed under
 // the BSD 3-Clause License; see THIRD_PARTY_NOTICES.md.

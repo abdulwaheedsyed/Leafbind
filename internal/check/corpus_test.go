@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 package check
 
 // A corpus of fixed-layout EPUBs, one valid and the rest each broken in one

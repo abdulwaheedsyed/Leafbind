@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 // Command demodocs writes the sample PDFs used for Leafbind's screenshots:
 // a slide deck, a novel, and a scanned book, so the screenshots show neutral
 // content that anyone can regenerate.

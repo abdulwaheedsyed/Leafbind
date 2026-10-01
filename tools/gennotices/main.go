@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 // Command gennotices writes THIRD_PARTY_NOTICES.md: the licenses of every
 // third-party component compiled into Leafbind.
 //
@@ -244,7 +247,7 @@ func identify(file string) string {
 func write(b *bytes.Buffer, comps []component, goCount, sourceCount int) {
 	b.WriteString(`# Third-party notices
 
-Leafbind is distributed under the MIT License; see LICENSE. Its
+Leafbind is distributed under the Apache License 2.0; see LICENSE and NOTICE. Its
 executables also contain the third-party software listed here, each under its
 own license, reproduced in full below.
 

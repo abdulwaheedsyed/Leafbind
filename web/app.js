@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 // Leafbind interface. Talks to the local server over a token-guarded
 // JSON API and receives job updates as server-sent events.
 "use strict";

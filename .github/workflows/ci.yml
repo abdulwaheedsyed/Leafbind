@@ -26,10 +26,42 @@ jobs:
           unformatted=$(gofmt -l .)
           if [ -n "$unformatted" ]; then echo "Not gofmt-formatted:"; echo "$unformatted"; exit 1; fi
       - run: go vet ./...
+      - name: Source files carry the license header
+        run: |
+          missing=$(git ls-files '*.go' '*.js' '*.css' '*.html' | grep -v '^internal/check/schema/' |
+            xargs grep -L 'SPDX-License-Identifier: Apache-2.0' || true)
+          if [ -n "$missing" ]; then echo "Missing the license header:"; echo "$missing"; exit 1; fi
       - name: go.mod and go.sum are tidy
         run: |
           go mod tidy
           git diff --exit-code go.mod go.sum
+
+  # Every commit of a pull request must be signed off by its author,
+  # certifying the Developer Certificate of Origin; see CONTRIBUTING.md.
+  dco:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Every commit is signed off
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          bad=0
+          for c in $(git rev-list --no-merges "$BASE..$HEAD"); do
+            author=$(git log -1 --format='%an <%ae>' "$c")
+            if ! git log -1 --format='%B' "$c" | grep -qiF "Signed-off-by: $author"; then
+              echo "::error::$(git log -1 --format='%h %s' "$c") is not signed off by $author"
+              bad=1
+            fi
+          done
+          if [ "$bad" = 1 ]; then
+            echo "Sign off each commit with git commit -s; see CONTRIBUTING.md."
+            exit 1
+          fi
 
   # The full suite, including end-to-end conversions through the embedded
   # PDF engine, on each operating system and architecture that is released.

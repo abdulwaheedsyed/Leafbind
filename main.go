@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 // Command leafbind turns a PDF into a Kindle-compatible fixed-layout
 // EPUB 3. Every page becomes an image on one shared canvas, so the original
 // typesetting survives exactly. It suits scanned books and slide decks, where
@@ -70,7 +73,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "leafbind", version)
 		return 0
 	case errors.Is(err, errLicenses):
-		fmt.Fprint(stdout, licenseText, "\n", noticesText)
+		fmt.Fprint(stdout, noticeText, "\n", licenseText, "\n", noticesText)
 		return 0
 	case err != nil:
 		fmt.Fprintf(stderr, "error: %v\n\n%s", err, usageText)

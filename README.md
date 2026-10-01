@@ -513,17 +513,28 @@ tables, minimal padding blocks, and quality against `image/jpeg`.
   are identical to an encoding with the standard tables — and `jpegtran
   -optimize` finds nothing further to remove.
 
+## Contributing
+
+Bug reports, ideas and pull requests are welcome; see
+[CONTRIBUTING.md](CONTRIBUTING.md). Commits are signed off under the
+[Developer Certificate of Origin](DCO), and everyone taking part follows the
+[code of conduct](CODE_OF_CONDUCT.md). Report security problems privately,
+as [SECURITY.md](SECURITY.md) describes.
+
 ## License
 
-Leafbind is released under the [MIT License](LICENSE).
+Copyright 2026 Syed Abdul Waheed.
 
-Its executables include third-party software under their own licenses — Go,
-the Go modules it uses, and PDFium with the libraries compiled into its
-WebAssembly build. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists them
-with their full license texts. The same text is embedded in every binary and
-printed by `leafbind --licenses`, and `make dist` places both files
-beside the binaries it builds.
+Leafbind is licensed under the [Apache License 2.0](LICENSE); see also
+[NOTICE](NOTICE). Releases before v0.9.0 were published under the MIT
+License and have been withdrawn. It includes third-party software under
+its own licenses, listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+and printed by `leafbind --licenses`.
 
-This software is based in part on the work of the FreeType Team.
+## Trademarks
 
-This software is based in part on the work of the Independent JPEG Group.
+"Leafbind" and the Leafbind logo are trademarks of Syed Abdul Waheed, and
+the license grants no rights to them; see [TRADEMARKS.md](TRADEMARKS.md) for
+what is and is not allowed. Leafbind is not affiliated with or endorsed by
+Amazon. Kindle and the other product names used here are trademarks of their
+owners.

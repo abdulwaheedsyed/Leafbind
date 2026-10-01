@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 // Package rng validates XML against RELAX NG schemas written in the compact
 // syntax.
 //

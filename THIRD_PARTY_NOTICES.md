@@ -1,6 +1,6 @@
 # Third-party notices
 
-Leafbind is distributed under the MIT License; see LICENSE. Its
+Leafbind is distributed under the Apache License 2.0; see LICENSE and NOTICE. Its
 executables also contain the third-party software listed here, each under its
 own license, reproduced in full below.
 

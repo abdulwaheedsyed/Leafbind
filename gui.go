@@ -1,3 +1,6 @@
+// Copyright 2026 Syed Abdul Waheed
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 // The graphical interface: a local web app served from inside the binary.
@@ -434,7 +437,7 @@ func (s *guiServer) handler() http.Handler {
 	api.HandleFunc("POST /api/reveal", s.reveal)
 	api.HandleFunc("GET /api/licenses", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		io.WriteString(w, licenseText+"\n"+noticesText)
+		io.WriteString(w, noticeText+"\n"+licenseText+"\n"+noticesText)
 	})
 	api.HandleFunc("POST /api/quit", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
