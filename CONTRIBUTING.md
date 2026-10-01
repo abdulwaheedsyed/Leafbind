@@ -63,6 +63,20 @@ Signed-off-by: Your Name <you@example.com>
 on your branch, run `git rebase --signoff main` and force-push the branch.
 A check on every pull request makes sure each commit is signed off.
 
+## Notes for maintainers
+
+- Dependabot opens weekly pull requests for Go modules and GitHub Actions.
+  A Go update fails the notices test until the notices are regenerated:
+  check out its branch, run `make notices`, and push the result. A
+  go-pdfium update can also change the PDFium build it embeds; see
+  `third_party/licenses/README.md`.
+- Actions are pinned to commit hashes, with the version in a comment, and
+  Dependabot keeps both up to date.
+- Releases are built, signed and published by the release workflow when a
+  `v*` tag is pushed. Each archive gets a build provenance attestation,
+  which anyone can check with
+  `gh attestation verify <archive> --repo abdulwaheedsyed/leafbind`.
+
 ## License
 
 Leafbind is licensed under the [Apache License 2.0](LICENSE). By

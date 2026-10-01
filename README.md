@@ -74,6 +74,14 @@ check it against `SHA256SUMS`:
 sha256sum --ignore-missing -c SHA256SUMS      # macOS: shasum -a 256 -c SHA256SUMS
 ```
 
+Each archive also carries a signed build provenance attestation, which
+proves it was built by this repository's release workflow from a published
+commit. With the [GitHub CLI](https://cli.github.com/):
+
+```bash
+gh attestation verify leafbind-*-linux-amd64.tar.gz --repo abdulwaheedsyed/leafbind
+```
+
 **Windows.** Unzip it and double-click `leafbind.exe`, or put it on your
 `PATH` for the command line. The executable carries its icon and version
 details.

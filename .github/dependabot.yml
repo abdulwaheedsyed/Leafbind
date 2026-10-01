@@ -1,0 +1,27 @@
+# Weekly updates for the Go modules and the GitHub Actions the workflows
+# use, each kind grouped into one pull request, and security fixes as soon
+# as they are published.
+#
+# A Go update changes what is linked into the binary, so its pull request
+# fails the notices test until "make notices" is run on its branch; see
+# CONTRIBUTING.md.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      go-modules:
+        patterns: ["*"]
+    commit-message:
+      prefix: deps
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
