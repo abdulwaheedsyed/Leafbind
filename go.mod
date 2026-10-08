@@ -5,7 +5,7 @@ go 1.27.1
 require (
 	github.com/ebitengine/purego v0.11.1
 	github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808
-	github.com/klippa-app/go-pdfium v1.21.0
+	github.com/klippa-app/go-pdfium v1.21.1
 	github.com/tetratelabs/wazero v1.12.0
 	golang.org/x/image v0.46.0
 )
