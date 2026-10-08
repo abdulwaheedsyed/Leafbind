@@ -4,6 +4,11 @@ All notable changes to Leafbind. Versions follow
 [semantic versioning](https://semver.org/); until 1.0, a minor version may
 change behaviour.
 
+## Unreleased
+
+- go-pdfium v1.21.1 finds a bookmark's own destination, so the table of
+  contents is read in one pass through the bookmarks rather than two.
+
 ## v0.9.1
 
 - Release archives carry signed build provenance attestations, which

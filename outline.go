@@ -14,7 +14,6 @@ import (
 	"github.com/klippa-app/go-pdfium/enums"
 	"github.com/klippa-app/go-pdfium/references"
 	"github.com/klippa-app/go-pdfium/requests"
-	"github.com/klippa-app/go-pdfium/responses"
 )
 
 // TOCEntry is one entry of the table of contents.
@@ -80,14 +79,6 @@ func (w *worker) outline(slot func(int) int) ([]TOCEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// go-pdfium's FPDFBookmark_GetDest asks PDFium for the wrong thing and
-	// never finds a destination, but GetBookmarks reads destinations
-	// correctly. It has no guard against loops, so it is called only now
-	// that the walk has shown the outline to be finite.
-	if all, err := w.inst.GetBookmarks(&requests.GetBookmarks{Document: w.doc}); err == nil {
-		addDestinations(raw, all.Bookmarks)
-	}
 	last := -1
 	return inReadingOrder(tidyOutline(raw, slot), &last), nil
 }
@@ -110,35 +101,29 @@ func inReadingOrder(entries []TOCEntry, last *int) []TOCEntry {
 	return out
 }
 
-// addDestinations fills in the pages of entries whose bookmark names its
-// destination directly, from GetBookmarks's reading of the same outline.
-func addDestinations(entries []TOCEntry, marks []responses.GetBookmarksBookmark) {
-	if len(entries) != len(marks) {
-		return // not the same outline; leave it alone
-	}
-	for i := range entries {
-		if entries[i].Page < 0 && marks[i].DestInfo != nil {
-			entries[i].Page = marks[i].DestInfo.PageIndex
-		}
-		addDestinations(entries[i].Children, marks[i].Children)
-	}
-}
-
-// bookmarkPage returns the page a bookmark's go-to action opens, or -1.
+// bookmarkPage returns the page a bookmark opens, or -1. The target is
+// either a destination on the bookmark itself or a go-to action.
 func (w *worker) bookmarkPage(bm references.FPDF_BOOKMARK) int {
-	a, err := w.inst.FPDFBookmark_GetAction(&requests.FPDFBookmark_GetAction{Bookmark: bm})
-	if err != nil || a.Action == nil {
-		return -1
+	var dest *references.FPDF_DEST
+	if d, err := w.inst.FPDFBookmark_GetDest(&requests.FPDFBookmark_GetDest{Document: w.doc, Bookmark: bm}); err == nil {
+		dest = d.Dest
 	}
-	t, err := w.inst.FPDFAction_GetType(&requests.FPDFAction_GetType{Action: *a.Action})
-	if err != nil || t.Type != enums.FPDF_ACTION_ACTION_GOTO {
-		return -1
+	if dest == nil {
+		a, err := w.inst.FPDFBookmark_GetAction(&requests.FPDFBookmark_GetAction{Bookmark: bm})
+		if err != nil || a.Action == nil {
+			return -1
+		}
+		t, err := w.inst.FPDFAction_GetType(&requests.FPDFAction_GetType{Action: *a.Action})
+		if err != nil || t.Type != enums.FPDF_ACTION_ACTION_GOTO {
+			return -1
+		}
+		d, err := w.inst.FPDFAction_GetDest(&requests.FPDFAction_GetDest{Document: w.doc, Action: *a.Action})
+		if err != nil || d.Dest == nil {
+			return -1
+		}
+		dest = d.Dest
 	}
-	d, err := w.inst.FPDFAction_GetDest(&requests.FPDFAction_GetDest{Document: w.doc, Action: *a.Action})
-	if err != nil || d.Dest == nil {
-		return -1
-	}
-	p, err := w.inst.FPDFDest_GetDestPageIndex(&requests.FPDFDest_GetDestPageIndex{Document: w.doc, Dest: *d.Dest})
+	p, err := w.inst.FPDFDest_GetDestPageIndex(&requests.FPDFDest_GetDestPageIndex{Document: w.doc, Dest: *dest})
 	if err != nil {
 		return -1
 	}
