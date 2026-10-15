@@ -1,0 +1,76 @@
+name: Dependabot
+
+# Dependabot's pull requests look after themselves where that is safe: the
+# notices are regenerated for Go module updates, and updates within a major
+# version merge once every required check passes. GitHub merges nothing
+# that conflicts or fails a check, so a broken update waits for a person.
+
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  # A Go module update changes what the binary links, so it fails the
+  # notices test until they are regenerated. A commit pushed with the
+  # workflow's own token would not start CI again, so this needs a token of
+  # its own: a fine-grained personal access token with read and write access
+  # to this repository's contents, saved as the Dependabot secret
+  # LEAFBIND_DEPENDABOT_TOKEN. Without it, run make notices by hand.
+  notices:
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && startsWith(github.head_ref, 'dependabot/go_modules/')
+    runs-on: ubuntu-latest
+    steps:
+      - id: token
+        env:
+          TOKEN: ${{ secrets.LEAFBIND_DEPENDABOT_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No LEAFBIND_DEPENDABOT_TOKEN secret; run make notices on this branch by hand."
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.token.outputs.present == 'true'
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.LEAFBIND_DEPENDABOT_TOKEN }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: steps.token.outputs.present == 'true'
+        with:
+          go-version-file: go.mod
+      - name: Regenerate the notices and push them
+        if: steps.token.outputs.present == 'true'
+        run: |
+          make notices
+          if git diff --quiet; then
+            echo "The notices are up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Regenerate the notices"
+          git push
+
+  auto-merge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+      - name: Merge once every required check passes
+        env:
+          DEPS: ${{ steps.meta.outputs.updated-dependencies-json }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A new major version may change behaviour, and go-pdfium can bring
+          # a new PDFium with its own license bundle: both wait for review.
+          if echo "$DEPS" | jq -e 'any(.[]; .updateType == "version-update:semver-major" or .dependencyName == "github.com/klippa-app/go-pdfium")' > /dev/null; then
+            echo "::notice::Left for review: a major version, or go-pdfium."
+            exit 0
+          fi
+          gh pr merge --auto --squash "$PR_URL"

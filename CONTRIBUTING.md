@@ -67,11 +67,17 @@ A check on every pull request makes sure each commit is signed off.
 
 ## Notes for maintainers
 
-- Dependabot opens weekly pull requests for Go modules and GitHub Actions.
-  A Go update fails the notices test until the notices are regenerated:
-  check out its branch, run `make notices`, and push the result. A
-  go-pdfium update can also change the PDFium build it embeds; see
-  `third_party/licenses/README.md`.
+- Dependabot opens weekly pull requests for Go modules and GitHub Actions,
+  and updates within a major version merge themselves once every required
+  check passes (`.github/workflows/dependabot.yml`). Major versions, and
+  go-pdfium, which has a group of its own, wait for review: a go-pdfium
+  update can bring a new PDFium, whose license bundle in
+  `third_party/licenses/pdfium` must match it.
+- A Go update fails the notices test until the notices are regenerated.
+  With a fine-grained personal access token (contents read and write, this
+  repository only) saved as the Dependabot secret
+  `LEAFBIND_DEPENDABOT_TOKEN`, the workflow does it; without one, check out
+  the branch, run `make notices`, and push a signed-off commit.
 - Actions are pinned to commit hashes, with the version in a comment, and
   Dependabot keeps both up to date.
 - `main` cannot be deleted or force-pushed, by anyone. Other changes reach

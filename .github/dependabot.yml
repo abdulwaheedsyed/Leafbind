@@ -1,10 +1,11 @@
 # Weekly updates for the Go modules and the GitHub Actions the workflows
-# use, each kind grouped into one pull request, and security fixes as soon
-# as they are published.
+# use, grouped into a few pull requests, and security fixes as soon as they
+# are published.
 #
-# A Go update changes what is linked into the binary, so its pull request
-# fails the notices test until "make notices" is run on its branch; see
-# CONTRIBUTING.md.
+# Updates within a major version merge themselves once every required
+# check passes; see .github/workflows/dependabot.yml. go-pdfium has a group
+# of its own and is always left for review, since it embeds PDFium, whose
+# license bundle in third_party/licenses must match it.
 version: 2
 updates:
   - package-ecosystem: gomod
@@ -12,8 +13,11 @@ updates:
     schedule:
       interval: weekly
     groups:
+      pdfium:
+        patterns: ["github.com/klippa-app/go-pdfium"]
       go-modules:
         patterns: ["*"]
+        exclude-patterns: ["github.com/klippa-app/go-pdfium"]
     commit-message:
       prefix: deps
   - package-ecosystem: github-actions
