@@ -4,6 +4,14 @@ All notable changes to Leafbind. Versions follow
 [semantic versioning](https://semver.org/); until 1.0, a minor version may
 change behaviour.
 
+## Unreleased
+
+- go-pdfium updated to v1.21.3, which decodes PDF text as UTF-16LE without
+  looking for a byte order mark, so a bookmark title or page label whose
+  first characters looked like one is no longer garbled.
+- Dependabot's updates within a major version merge themselves once every
+  check passes; go-pdfium and major versions still wait for review.
+
 ## v0.9.2
 
 - go-pdfium updated to v1.21.1, which finds a bookmark's own destination,
