@@ -4,7 +4,7 @@ All notable changes to Leafbind. Versions follow
 [semantic versioning](https://semver.org/); until 1.0, a minor version may
 change behaviour.
 
-## Unreleased
+## v0.9.3
 
 - PDFium updated to build 8111, through go-pdfium v1.21.4. It now includes
   Dragonbox, HarfBuzz and Highway, which the third-party notices credit.
@@ -13,6 +13,7 @@ change behaviour.
   first characters looked like one is no longer garbled.
 - Dependabot's updates within a major version merge themselves once every
   check passes; go-pdfium and major versions still wait for review.
+- purego updated to v0.11.2, and golang.org/x/image to v0.47.0.
 
 ## v0.9.2
 
