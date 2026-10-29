@@ -7,7 +7,7 @@ components compiled into the embedded PDFium WebAssembly module. They are copied
 
 - `pdfium/`: the license bundle that ships with the PDFium WebAssembly
   build from [pdfium-binaries](https://github.com/bblanchon/pdfium-binaries),
-  release `chromium/8066`. The module embedded by go-pdfium is built from a
+  release `chromium/8111`. The module embedded by go-pdfium is built from a
   fork of that project with the same configuration: release, AGG renderer, no
   V8, no XFA.
 - `go/`: Go's own license and patent grant, which cover the standard library
