@@ -6,6 +6,8 @@ change behaviour.
 
 ## Unreleased
 
+- PDFium updated to build 8111, through go-pdfium v1.21.4. It now includes
+  Dragonbox, HarfBuzz and Highway, which the third-party notices credit.
 - go-pdfium updated to v1.21.3, which decodes PDF text as UTF-16LE without
   looking for a byte order mark, so a bookmark title or page label whose
   first characters looked like one is no longer garbled.
